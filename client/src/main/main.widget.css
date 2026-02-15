@@ -1,0 +1,97 @@
+* {
+    font-family: monospace;
+    font-size: 14px;
+}
+body {
+    background-color: #e7e7e7;
+}
+.frame_out {
+    margin: 5px;
+    position: relative;
+    border: 1px solid grey;
+    background-color: #d9d9d9;
+    box-shadow: 5px 5px 1px #363636;
+    padding: 6px;
+}
+.frame_title_wrap {
+    border: 1px solid grey;
+    position: absolute;
+    left: 30px;
+    top: 1px;
+}
+.frame_title {
+    display: inline-block;
+    padding: 2px;
+    position: relative;
+    color: black;
+    background-color: white;
+}
+.frame_in_1 {
+    border: 1px solid grey;
+    padding: 1px;
+    margin: 5px;
+}
+.frame_in_2 {
+    border: 1px solid grey;
+    padding: 15px 5px;
+}
+ul {
+    margin: 10px 0;
+    padding: 0;
+}
+li {
+    margin-left: 20px;
+    list-style-type: square;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-emphasis: #af0000;
+}
+.status_bar {
+    padding: 5px;
+    margin: 15px;
+    box-shadow: 1px 1px 1px #363636;
+}
+.ok {
+    background-color: #01a801;
+    color: white;
+}
+.error {
+    background-color: #af0000;
+    color: #c5c500;
+}
+input {
+    padding: 2px 5px;
+    margin: 5px;
+    display: inline-block;
+    width: 100%;
+}
+button {
+    cursor: pointer;
+    margin: 2px 5px;
+    padding: 5px;
+    position: relative;
+    box-shadow: 5px 5px 1px #363636;
+}
+button::before {
+    content: '◀';
+}
+button::after {
+    content: '▶';
+}
+button:active {
+    left: 3px;
+    top: 2px;
+    box-shadow: 2px 3px 1px #363636;
+}
+@media screen and (max-width: 600px) {
+    * {
+        font-size: 16px;
+    }
+}
+
+.tickInfo {
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    color: #070807;
+}

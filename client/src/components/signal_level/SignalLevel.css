@@ -1,0 +1,26 @@
+
+
+.signal-level {
+    display: inline-block;
+}
+
+.bar {
+    width: 5px;
+    display: inline-block;
+    vertical-align: bottom;
+    margin: 1px;
+}
+
+.level-text {
+    font-size: 10px;
+    vertical-align: bottom;
+    max-width: 50px;
+}
+
+.bar-empty {
+    border: 1px solid black;
+}
+
+.bar-filled {
+    background-color: black;
+}

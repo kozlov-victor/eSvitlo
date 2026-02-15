@@ -1,0 +1,396 @@
+#ifndef DISPLAY_H
+#define DISPLAY_H
+
+#include "../../_stubs/stubs.h"
+
+// Вибір контролера
+#define DISPLAY_SSD1306 0
+#define DISPLAY_SSD1315 1
+#define DISPLAY_SH1106  2
+
+#ifndef DISPLAY_TYPE
+#define DISPLAY_TYPE DISPLAY_SSD1315
+#endif
+
+#ifndef OLED_ADDR
+#define OLED_ADDR 0x3C
+#endif
+
+#ifndef WIDTH
+#define WIDTH 128
+#endif
+
+#ifndef HEIGHT
+#define HEIGHT 64
+#endif
+
+class Display {
+  uint8_t framebuffer[WIDTH * HEIGHT / 8];
+
+public:
+  Display() { clear(); }
+
+  void begin() {
+    initDisplay();
+  }
+
+  void clear() {
+    for (int i = 0; i < WIDTH * HEIGHT / 8; i++) framebuffer[i] = 0;
+  }
+
+  void setOffset(int x, int y) {
+    offsetX = x;
+    offsetY = y;
+  }
+
+  void drawPixel(int x, int y, bool color) {
+    x += offsetX;
+    y += offsetY;
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+    int page = y / 8;
+    int bit = y % 8;
+    int index = page * WIDTH + x;
+    if (color)
+      framebuffer[index] |= (1 << bit);
+    else
+      framebuffer[index] &= ~(1 << bit);
+  }
+
+
+  // Малюємо символ 5x7 ASCII
+  void drawChar(int x, int y, char c, uint scaleX = 1, uint scaleY = 1, bool color = true) {
+    if (c < 32 || c > 127) c = '?';
+    const int letterWidth = 5;
+    const int letterHeight = 7;
+
+    for (int i = 0; i < letterWidth; i++) {
+      uint8_t column = font5x7[c - 32][i];
+      for (int j = 0; j < letterHeight; j++) {
+        bool pixelOn = (column >> j) & 0x01;
+        if (pixelOn) {
+          fillRect2(x + i * scaleX, y + j * scaleY, scaleX, scaleY, color);
+        }
+      }
+    }
+  }
+
+  void drawText(int x, int y, const char *str,
+                uint scaleX = 1, uint scaleY = 1, bool color = true) {
+    int baseX = x;
+    int letterWidth = 5 * scaleX;
+    int letterHeight = 7 * scaleY;
+
+    while (*str) {
+      // 🔹 перенос рядка
+      if (*str == '\n') {
+        x = baseX;
+        y += letterHeight + 1;
+        str++;
+
+        if (y >= HEIGHT) break;
+        continue;
+      }
+
+      // малюємо символ
+      drawChar(x, y, *str, scaleX, scaleY, color);
+
+      x += letterWidth + 1;
+      if (x + letterWidth >= WIDTH) break;
+
+      str++;
+    }
+  }
+
+  void drawText(int x, int y, const String &str, uint scaleX = 1, uint scaleY = 1, bool color = true) {
+    drawText(x, y, str.c_str(), scaleX, scaleY, color);
+  }
+
+  void drawBitmap(int x, int y, int w, int h, const uint8_t *data) {
+    for (int row = 0; row < h; row++) {
+      for (int col = 0; col < w; col++) {
+        int byteIndex = (row * ((w + 7) / 8)) + (col / 8);
+        int bitIndex = 7 - (col % 8); // старший біт ліворуч
+        if (data[byteIndex] & (1 << bitIndex)) {
+          drawPixel(x + col, y + row, true);
+        }
+      }
+    }
+  }
+
+  // Заповнити залитий прямокутник у framebuffer швидко
+  // (x,y,w,h) можуть виходити за межі — є обрізання (clipping).
+  void fillRect(int x, int y, int w, int h, bool color = true) {
+    if (w <= 0 || h <= 0) return;
+
+    // Кліпінг у видиму область
+    int x0 = x;
+    int y0 = y;
+    int x1 = x + w - 1;
+    int y1 = y + h - 1;
+
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= WIDTH) x1 = WIDTH - 1;
+    if (y1 >= HEIGHT) y1 = HEIGHT - 1;
+    if (x0 > x1 || y0 > y1) return;
+
+    int startPage = y0 >> 3; // /8
+    int endPage = y1 >> 3;
+
+    const int span = x1 - x0 + 1;
+
+    // Маски для часткових сторінок
+    const int a = (y0 & 7); // початковий біт у сторінці
+    const int b = (y1 & 7); // кінцевий біт у сторінці
+    const uint8_t firstMask = (uint8_t) ((0xFFu << a) & 0xFFu);
+    const uint8_t lastMask = (uint8_t) (0xFFu >> (7 - b));
+    const uint8_t fullMask = 0xFF;
+
+    for (int page = startPage; page <= endPage; ++page) {
+      uint8_t mask;
+
+      if (startPage == endPage) {
+        // Прямокутник вмістився в одну сторінку (0..7)
+        mask = (uint8_t) ((0xFFu << a) & (0xFFu >> (7 - b)));
+      } else if (page == startPage) {
+        mask = firstMask;
+      } else if (page == endPage) {
+        mask = lastMask;
+      } else {
+        mask = fullMask;
+      }
+
+      uint8_t *row = &framebuffer[page * WIDTH + x0];
+
+      if (mask == fullMask) {
+        // Повна сторінка по висоті — можна дуже швидко
+        memset(row, color ? 0xFF : 0x00, span);
+      } else {
+        if (color) {
+          for (int i = 0; i < span; ++i) row[i] |= mask;
+        } else {
+          uint8_t inv = (uint8_t) ~mask;
+          for (int i = 0; i < span; ++i) row[i] &= inv;
+        }
+      }
+    }
+  }
+
+  // Заповнити залитий прямокутник у framebuffer швидко
+  // (x,y,w,h) можуть виходити за межі — є обрізання (clipping).
+  void fillRect2(int x, int y, int w, int h, bool color = true) {
+    if (w <= 0 || h <= 0) return;
+
+    // Кліпінг у видиму область
+    int x0 = x;
+    int y0 = y;
+    int x1 = x + w;
+    int y1 = y + h;
+
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > WIDTH) x1 = WIDTH;
+    if (y1 > HEIGHT) y1 = HEIGHT;
+    if (x0 > x1 || y0 > y1) return;
+
+    for (int i = x0; i < x1; i++) {
+      for (int j = y0; j < y1; j++) {
+        drawPixel(i, j, color);
+      }
+    }
+  }
+
+
+  void update() {
+#if DISPLAY_TYPE == DISPLAY_SH1106
+    for (uint8_t page = 0; page < 8; page++) {
+      sendCommand(0xB0 | page);
+      sendCommand(0x02); // нижчий біт стартової адреси
+      sendCommand(0x10); // вищий біт
+      sendDataBuffer(&framebuffer[page * WIDTH], WIDTH);
+    }
+#else
+    // SSD1306 та SSD1315
+    for (uint8_t page = 0; page < 8; page++) {
+      sendCommand(0xB0 | page);
+      sendCommand(0x00);
+      sendCommand(0x10);
+      sendDataBuffer(&framebuffer[page * WIDTH], WIDTH);
+    }
+#endif
+  }
+
+private:
+  int offsetX = 0;
+  int offsetY = 0;
+
+  void sendCommand(uint8_t cmd) {
+    Wire.beginTransmission(OLED_ADDR);
+    Wire.write(0x00);
+    Wire.write(cmd);
+    int status = Wire.endTransmission();
+    if (status != 0) {
+      Serial.println("sendCommand display error: " + String(status));
+    }
+  }
+
+  void sendDataBuffer(uint8_t *buf, uint8_t len) {
+    const uint8_t CHUNK = 16; // або 32
+    for (uint8_t off = 0; off < len;) {
+      uint8_t n = min<uint8_t>(CHUNK, len - off);
+      Wire.beginTransmission(OLED_ADDR);
+      Wire.write(0x40);
+      for (uint8_t i = 0; i < n; i++) Wire.write(buf[off + i]);
+      int status = Wire.endTransmission();
+      if (status != 0) {
+        Serial.println("sendDataBuffer error: " + String(status));
+        break;
+      }
+      off += n;
+    }
+  }
+
+  void initDisplay() {
+    delay(100);
+    sendCommand(0xAE); // OFF
+
+    // базова ініціалізація
+    sendCommand(0x20);
+    sendCommand(0x02); // Page addressing mode
+    sendCommand(0xB0);
+    sendCommand(0xC8);
+    sendCommand(0x00);
+    sendCommand(0x10);
+    sendCommand(0x40);
+    sendCommand(0x81);
+    sendCommand(0x7F);
+    sendCommand(0xA1);
+    sendCommand(0xA6);
+    sendCommand(0xA8);
+    sendCommand(0x3F);
+    sendCommand(0xA4);
+    sendCommand(0xD3);
+    sendCommand(0x00);
+    sendCommand(0xD5);
+    sendCommand(0x80);
+    sendCommand(0xD9);
+    sendCommand(0xF1);
+    sendCommand(0xDA);
+    sendCommand(0x12);
+    sendCommand(0xDB);
+    sendCommand(0x40);
+    sendCommand(0x8D);
+    sendCommand(0x14);
+    sendCommand(0xAF); // ON
+
+#if DISPLAY_TYPE != DISPLAY_SH1106
+    sendCommand(0x21);
+    sendCommand(0x00);
+    sendCommand(0x7F); // col 0..127
+    sendCommand(0x22);
+    sendCommand(0x00);
+    sendCommand(0x07); // page 0..7
+#endif
+  }
+
+  // Шрифт ASCII 32–127
+  const uint8_t font5x7[96][5] PROGMEM = {
+    {0x00, 0x00, 0x00, 0x00, 0x00}, // 32 space
+    {0x00, 0x00, 0x5F, 0x00, 0x00}, // 33 !
+    {0x00, 0x07, 0x00, 0x07, 0x00}, // 34 "
+    {0x14, 0x7F, 0x14, 0x7F, 0x14}, // 35 #
+    {0x24, 0x2A, 0x7F, 0x2A, 0x12}, // 36 $
+    {0x23, 0x13, 0x08, 0x64, 0x62}, // 37 %
+    {0x36, 0x49, 0x55, 0x22, 0x50}, // 38 &
+    {0x00, 0x05, 0x03, 0x00, 0x00}, // 39 '
+    {0x00, 0x1C, 0x22, 0x41, 0x00}, // 40 (
+    {0x00, 0x41, 0x22, 0x1C, 0x00}, // 41 )
+    {0x14, 0x08, 0x3E, 0x08, 0x14}, // 42 *
+    {0x08, 0x08, 0x3E, 0x08, 0x08}, // 43 +
+    {0x00, 0x50, 0x30, 0x00, 0x00}, // 44 ,
+    {0x08, 0x08, 0x08, 0x08, 0x08}, // 45 -
+    {0x00, 0x60, 0x60, 0x00, 0x00}, // 46 .
+    {0x20, 0x10, 0x08, 0x04, 0x02}, // 47 /
+    {0x3E, 0x51, 0x49, 0x45, 0x3E}, // 48 0
+    {0x00, 0x42, 0x7F, 0x40, 0x00}, // 49 1
+    {0x42, 0x61, 0x51, 0x49, 0x46}, // 50 2
+    {0x21, 0x41, 0x45, 0x4B, 0x31}, // 51 3
+    {0x18, 0x14, 0x12, 0x7F, 0x10}, // 52 4
+    {0x27, 0x45, 0x45, 0x45, 0x39}, // 53 5
+    {0x3C, 0x4A, 0x49, 0x49, 0x30}, // 54 6
+    {0x01, 0x71, 0x09, 0x05, 0x03}, // 55 7
+    {0x36, 0x49, 0x49, 0x49, 0x36}, // 56 8
+    {0x06, 0x49, 0x49, 0x29, 0x1E}, // 57 9
+    {0x00, 0x36, 0x36, 0x00, 0x00}, // 58 :
+    {0x00, 0x56, 0x36, 0x00, 0x00}, // 59 ;
+    {0x08, 0x14, 0x22, 0x41, 0x00}, // 60 <
+    {0x14, 0x14, 0x14, 0x14, 0x14}, // 61 =
+    {0x00, 0x41, 0x22, 0x14, 0x08}, // 62 >
+    {0x02, 0x01, 0x51, 0x09, 0x06}, // 63 ?
+    {0x32, 0x49, 0x79, 0x41, 0x3E}, // 64 @
+    {0x7E, 0x11, 0x11, 0x11, 0x7E}, // 65 A
+    {0x7F, 0x49, 0x49, 0x49, 0x36}, // 66 B
+    {0x3E, 0x41, 0x41, 0x41, 0x22}, // 67 C
+    {0x7F, 0x41, 0x41, 0x22, 0x1C}, // 68 D
+    {0x7F, 0x49, 0x49, 0x49, 0x41}, // 69 E
+    {0x7F, 0x09, 0x09, 0x09, 0x01}, // 70 F
+    {0x3E, 0x41, 0x49, 0x49, 0x7A}, // 71 G
+    {0x7F, 0x08, 0x08, 0x08, 0x7F}, // 72 H
+    {0x00, 0x41, 0x7F, 0x41, 0x00}, // 73 I
+    {0x20, 0x40, 0x41, 0x3F, 0x01}, // 74 J
+    {0x7F, 0x08, 0x14, 0x22, 0x41}, // 75 K
+    {0x7F, 0x40, 0x40, 0x40, 0x40}, // 76 L
+    {0x7F, 0x02, 0x0C, 0x02, 0x7F}, // 77 M
+    {0x7F, 0x04, 0x08, 0x10, 0x7F}, // 78 N
+    {0x3E, 0x41, 0x41, 0x41, 0x3E}, // 79 O
+    {0x7F, 0x09, 0x09, 0x09, 0x06}, // 80 P
+    {0x3E, 0x41, 0x51, 0x21, 0x5E}, // 81 Q
+    {0x7F, 0x09, 0x19, 0x29, 0x46}, // 82 R
+    {0x46, 0x49, 0x49, 0x49, 0x31}, // 83 S
+    {0x01, 0x01, 0x7F, 0x01, 0x01}, // 84 T
+    {0x3F, 0x40, 0x40, 0x40, 0x3F}, // 85 U
+    {0x1F, 0x20, 0x40, 0x20, 0x1F}, // 86 V
+    {0x3F, 0x40, 0x38, 0x40, 0x3F}, // 87 W
+    {0x63, 0x14, 0x08, 0x14, 0x63}, // 88 X
+    {0x07, 0x08, 0x70, 0x08, 0x07}, // 89 Y
+    {0x61, 0x51, 0x49, 0x45, 0x43}, // 90 Z
+    {0x00, 0x7F, 0x41, 0x41, 0x00}, // 91 [
+    {0x02, 0x04, 0x08, 0x10, 0x20}, // 92 backslash
+    {0x00, 0x41, 0x41, 0x7F, 0x00}, // 93 ]
+    {0x04, 0x02, 0x01, 0x02, 0x04}, // 94 ^
+    {0x40, 0x40, 0x40, 0x40, 0x40}, // 95 _
+    {0x00, 0x01, 0x02, 0x04, 0x00}, // 96 `
+    {0x20, 0x54, 0x54, 0x54, 0x78}, // 97 a
+    {0x7F, 0x48, 0x44, 0x44, 0x38}, // 98 b
+    {0x38, 0x44, 0x44, 0x44, 0x20}, // 99 c
+    {0x38, 0x44, 0x44, 0x48, 0x7F}, //100 d
+    {0x38, 0x54, 0x54, 0x54, 0x18}, //101 e
+    {0x08, 0x7E, 0x09, 0x01, 0x02}, //102 f
+    {0x0C, 0x52, 0x52, 0x52, 0x3E}, //103 g
+    {0x7F, 0x08, 0x04, 0x04, 0x78}, //104 h
+    {0x00, 0x44, 0x7D, 0x40, 0x00}, //105 i
+    {0x20, 0x40, 0x44, 0x3D, 0x00}, //106 j
+    {0x7F, 0x10, 0x28, 0x44, 0x00}, //107 k
+    {0x00, 0x41, 0x7F, 0x40, 0x00}, //108 l
+    {0x7C, 0x04, 0x18, 0x04, 0x78}, //109 m
+    {0x7C, 0x08, 0x04, 0x04, 0x78}, //110 n
+    {0x38, 0x44, 0x44, 0x44, 0x38}, //111 o
+    {0x7C, 0x14, 0x14, 0x14, 0x08}, //112 p
+    {0x08, 0x14, 0x14, 0x18, 0x7C}, //113 q
+    {0x7C, 0x08, 0x04, 0x04, 0x08}, //114 r
+    {0x48, 0x54, 0x54, 0x54, 0x20}, //115 s
+    {0x04, 0x3F, 0x44, 0x40, 0x20}, //116 t
+    {0x3C, 0x40, 0x40, 0x20, 0x7C}, //117 u
+    {0x1C, 0x20, 0x40, 0x20, 0x1C}, //118 v
+    {0x3C, 0x40, 0x30, 0x40, 0x3C}, //119 w
+    {0x44, 0x28, 0x10, 0x28, 0x44}, //120 x
+    {0x0C, 0x50, 0x50, 0x50, 0x3C}, //121 y
+    {0x44, 0x64, 0x54, 0x4C, 0x44}, //122 z
+    {0x00, 0x08, 0x36, 0x41, 0x00}, //123 {
+    {0x00, 0x00, 0x7F, 0x00, 0x00}, //124 |
+    {0x00, 0x41, 0x36, 0x08, 0x00}, //125 }
+    {0x08, 0x04, 0x08, 0x10, 0x08} //126 ~
+  };
+};
+
+#endif
