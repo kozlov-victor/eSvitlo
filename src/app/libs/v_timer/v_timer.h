@@ -33,14 +33,14 @@ public:
         if (firstTick) {
             firstTick = false;
             lastTime = now;
-            callback();
-            if (once) started = false;
+            if (!once) callback();
             return;
         }
 
         if (now - lastTime >= interval) {
             lastTime = now;
             callback();
+            if (once) started = false;
         }
     }
 };

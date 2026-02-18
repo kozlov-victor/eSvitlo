@@ -11,7 +11,7 @@ public:
     VHashTable<String> *headers;
     VTableMultitype *params;
 
-    VRequest(String method, VHashTable<String> *headers, VTableMultitype *params) {
+    VRequest(const String &method, VHashTable<String> *headers, VTableMultitype *params) {
         this->method = method;
         this->headers = headers;
         this->params = params;

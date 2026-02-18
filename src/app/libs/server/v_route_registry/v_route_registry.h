@@ -7,34 +7,55 @@
 #include "../v_response/v_response.h"
 #include "../v_base_controller/v_base_controller.h"
 
+
 class VRouteRegistry {
 private:
     struct VRouteInfo {
+        VBaseController *controller;
         String url;
         String method;
         void (*handler)(VRequest*,VResponse*);
     };
-    static VArrayList<VRouteInfo>& routes() {  // header-only, старий трюк для ініціалізації статіс-поля в header
-        static VArrayList<VRouteInfo> instance;
-        return instance;
+    VArrayList<VRouteInfo*> *routes;
+    VArrayList<VBaseController*> *controllers;
+
+    static void handleUnauthorised(VResponse* resp) {
+        resp->writeStatus(V_RESPONSE_FORBIDDEN);
     }
 public:
-    static void registerRoute(const String url, String method, void (*handler)(VRequest*,VResponse*)) {
-        routes().add({url, method, handler});
+    VRouteRegistry()
+        : routes(new VArrayList<VRouteInfo*>()),
+          controllers(new VArrayList<VBaseController*>()) {
     }
-    static void registerController(VBaseController &ctrl) {
-        ctrl.initRoutes();
+
+    void registerRoute(const String& url, const String &method, VBaseController *controller, void (*handler)(VRequest*,VResponse*)) const {
+        auto* info = new VRouteInfo{controller, url, method, handler};
+        routes->add(info);
     }
-    static boolean handleRequest(String url, String method, VRequest* req, VResponse* resp) {
+    void registerController(VBaseController *ctrl) const {
+        controllers->add(ctrl);
+        ctrl->initRoutes();
+    }
+    boolean handleRequest(const String& url, const String &method, VRequest* req, VResponse* resp) const {
         Serial.println("handling request: " + url + " (" + method + ")");
-        for (size_t i=0;i<routes().size();i++) {
-            VRouteInfo route = routes().getAt(i);
-            if (url==route.url && method==route.method) {
-                route.handler(req,resp);
+        for (size_t i=0;i<routes->size();i++) {
+            const VRouteInfo* route = routes->getAt(i);
+            if (url==route->url && method==route->method) {
+                if (!route->controller->authorise(req)) {
+                    handleUnauthorised(resp);
+                }
+                else {
+                    route->handler(req,resp);
+                }
                 return true;
             }
         }
         return false;
+    }
+    void tick() {
+        for (int i=0;i<controllers->size();i++) {
+            controllers->getAt(i)->tick();
+        }
     }
 };
 

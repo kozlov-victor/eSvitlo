@@ -62,7 +62,7 @@ const copyResourcesToCpp = async ()=>{
 #define SVITLO_STATIC_H
 #include <Arduino.h>
 #include <stdint.h>  // Додаємо цей заголовок для типів uint8_t, uint16_t тощо
-#include "../server/static/static.h"
+#include "../server/v_static/v_static.h"
 
 const String E_TAG = "${eTag}";
 

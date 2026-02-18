@@ -21,7 +21,7 @@ private:
         out.reserve(s.length() + 4);
 
         for (size_t i = 0; i < s.length(); i++) {
-            char c = s[i];
+            const char c = s[i];
             switch (c) {
                 case '"':  out += "\\\""; break;
                 case '\\': out += "\\\\"; break;
@@ -56,34 +56,34 @@ public:
     ~VTableMultitype() {
         delete table;
     }
-    void putAll(VTableMultitype& value) const {
-        value.table->forEach([this](const String key, const MultiValue val) {
+    void putAll(const VTableMultitype &value) const {
+        value.table->forEach([this](const String &key, const MultiValue &val) {
             this->table->put(key,val);
         });
     }
-    void putString(const String key, String value) const {
+    void putString(const String &key, const String &value) const {
         table->put(key,{STRING,0,value,false});
     }
-    String getString(const String key) const{
+    String getString(const String &key) const{
         return table->get(key).sValue;
     }
-    void putBoolean(const String key, boolean value) const{
+    void putBoolean(const String &key, const boolean value) const{
         table->put(key,{BOOLEAN, 0,"",value});
     }
-    boolean getBoolean(const String key) const {
+    boolean getBoolean(const String &key) const {
         return table->get(key).bValue;
     }
-    void putInt(const String key, int value) const{
+    void putInt(const String &key, const int value) const{
         table->put(key,{INT, value,"",false});
     }
-    int getInt(const String key) const {
+    int getInt(const String &key) const {
         return table->get(key).nValue;
     }
-    String stringify() {
+    String stringify() const {
         String result = "{";
         int cnt = 0;
         size_t size = this->table->size();
-        this->table->forEach([&result, &cnt, size](const String key, const MultiValue value) {
+        this->table->forEach([&result, &cnt, size](const String &key, const MultiValue &value) {
             result += "\"" + key + "\":" + stringifyItem(value);
             if (cnt < size - 1) {
                 result += ",";
@@ -116,7 +116,7 @@ public:
             // escape-послідовності всередині рядка
             if (quoteAppeared && c == '\\') {
                 if (i + 1 < source.length()) {
-                    char next = source[++i];
+                    const char next = source[++i];
                     char decoded;
                     switch (next) {
                         case '"':  decoded = '"';  break;
@@ -196,6 +196,9 @@ public:
 
         return result;
     }
+
+    // VTableMultitype(const VTableMultitype&) = delete;
+    // VTableMultitype& operator=(const VTableMultitype&) = delete;
 
 };
 

@@ -16,7 +16,7 @@ private:
     void resize() {
         size_t newLength = this->arrayLength + 10;
         T *temp = new T[newLength];
-        for(size_t i = 0; i < this->arrayLength; i++){
+        for(size_t i = 0; i < this->pointer; i++){
             temp[i] = this->Array[i];
         }
         delete [] this->Array;
@@ -25,21 +25,21 @@ private:
     }
 
     bool checkRange(size_t index) {
-        return index <= this->pointer;
+        return index < this->pointer;
     }
 
 public:
-    VArrayList(size_t size=10) {
+    explicit VArrayList(size_t size=10) {
         this->Array = new T[size];
         this->pointer = 0;
         this->arrayLength = size;
     }
 
     ~VArrayList() {
-        delete [] this->Array;
+        delete[] this->Array;
     }
 
-    void addAt(T a, size_t index) {
+    void addAt(const T &a, size_t index) {
         if (!this->checkRange(index)) return;
         if(this->needToResize()){
             this->resize();
@@ -48,35 +48,48 @@ public:
             this->Array[i] = this->Array[i - 1];
         }
         this->Array[index] = a;
-        this->pointer++;
+        ++this->pointer;
     }
 
-    void add(T a) {
+    void add(const T &a) {
         if(this->needToResize()){
             this->resize();
         }
         this->Array[pointer] = a;
-        this->pointer++;
+        ++this->pointer;
     }
 
-    T getAt(size_t index) {
-        if (!this->checkRange(index)) return T();
+    T& getAt(size_t index) {
+        if (!this->checkRange(index)) {
+            Serial.println("VArrayList::error::");
+            Serial.println("VArrayList::error::");
+            Serial.println("VArrayList::error::");
+            Serial.println("VArrayList::error::");
+            Serial.printf("VArrayList::getAt: index out of bounds %i, size: %i", index, this->size());
+            Serial.println("VArrayList::error::");
+            Serial.println("VArrayList::error::");
+            Serial.println("VArrayList::error::");
+            Serial.println("VArrayList::error::");
+            return this->Array[0];
+        };
         return this->Array[index];
     }
 
     void removeAt(size_t index) {
         if (!this->checkRange(index)) return;
-        for(size_t i = index; i < this->pointer; i++){
+
+        for(size_t i = index; i < this->pointer - 1; i++){
             this->Array[i] = this->Array[i+1];
         }
-        this->pointer--;
+
+        --this->pointer;
     }
 
     bool empty() {
         return this->pointer == 0;
     }
 
-    size_t indexOf(T item) {
+    size_t indexOf(const T &item) {
         for(size_t i = 0; i < this->pointer; i++){
             if(this->Array[i] == item){
                 return i;
@@ -85,7 +98,7 @@ public:
         return 0;
     }
 
-    bool has(T item) {
+    bool has(const T &item) {
         for(size_t i = 0; i < this->pointer; i++){
             if(this->Array[i] == item){
                 return true;
@@ -94,9 +107,12 @@ public:
         return false;
     }
 
-    size_t size() {
+    size_t size() const {
         return this->pointer;
     }
+
+    VArrayList(const VArrayList&) = delete;
+    VArrayList& operator=(const VArrayList&) = delete;
 
 };
 

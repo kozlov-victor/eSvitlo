@@ -1,0 +1,83 @@
+/**
+    dialog
+ */
+.modal-wrap-outer {
+    display: table;
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    right: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.51);
+}
+
+.modal-wrap-inner {
+    display: table-cell;
+    vertical-align: middle;
+    height: 100%;
+}
+
+.dialog {
+    width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: 0 auto;
+    text-align: center;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 1px 1px 5px black;
+}
+
+
+@media screen and (max-width: 600px) {
+    .dialog {
+        width: 90vw;
+    }
+}
+
+.dialog-head {
+    position: sticky;
+    z-index: 1000;
+    top: 0;
+    padding: 10px;
+    text-align: left;
+    background-color: gray;
+    border-bottom: 1px solid #767676;
+    color: white;
+    cursor: pointer;
+    font-size: 21px;
+}
+
+.dialog-title {
+    padding: 2px;
+    margin: 3px;
+    text-align: center;
+    font-size: 15px;
+}
+
+.dialog-body {
+    padding: 5px;
+    min-height: 50px;
+}
+
+.dialog-text-content {
+    margin: 10px 5px;
+}
+
+.dialog-close {
+    display: inline-block;
+    padding: 1px;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    text-align: center;
+    position: absolute;
+    right: 10px;
+    top: 10px;
+}
+
+.dialog-close:hover {
+    background-color: #c7c7c7;
+}

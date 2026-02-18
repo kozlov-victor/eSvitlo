@@ -15,7 +15,7 @@ private:
     Entry* table[TABLE_SIZE];
     size_t numElements;
 
-    size_t hashFunction(String key) {
+    static size_t hashFunction(const String &key) {
         size_t hash = 0;
         for (size_t i = 0; i < key.length(); i++) {
             hash = (hash * 31) + key.charAt(i);
@@ -34,14 +34,14 @@ public:
         for (size_t i = 0; i < TABLE_SIZE; i++) {
             Entry* entry = table[i];
             while (entry != nullptr) {
-                Entry* prev = entry;
+                const Entry* prev = entry;
                 entry = entry->next;
                 delete prev;
             }
         }
     }
 
-    void forEach(std::function<void(const String, const U&)> callback) {
+    template<typename F>void forEach(F callback) {
         for (size_t i = 0; i < TABLE_SIZE; i++) {
             Entry* entry = table[i];
             while (entry != nullptr) {
@@ -51,7 +51,7 @@ public:
         }
     }
 
-    void put(String key, U value) {
+    void put(const String &key, const U &value) {
         size_t hash = hashFunction(key);
         Entry* entry = table[hash];
         while (entry != nullptr) {
@@ -63,10 +63,10 @@ public:
         }
         entry = new Entry{key, value, table[hash]};
         table[hash] = entry;
-        this->numElements++;
+        ++this->numElements;
     }
 
-    U get(String key) {
+    U get(const String &key) const {
         size_t hash = hashFunction(key);
         Entry* entry = table[hash];
         while (entry != nullptr) {
@@ -75,10 +75,19 @@ public:
             }
             entry = entry->next;
         }
+        Serial.println("VHashTable::error::");
+        Serial.println("VHashTable::error::");
+        Serial.println("VHashTable::error::");
+        Serial.println("VHashTable::error::");
+        Serial.printf("VHashTable::no such value: %s", key.c_str());
+        Serial.println("VHashTable::error::");
+        Serial.println("VHashTable::error::");
+        Serial.println("VHashTable::error::");
+        Serial.println("VHashTable::error::");
         return U(); // Return default value if key not found
     }
 
-    bool has(String key) {
+    boolean has(const String &key) const {
         size_t hash = hashFunction(key);
         Entry* entry = table[hash];
         while (entry != nullptr) {
@@ -90,7 +99,7 @@ public:
         return false;
     }
 
-    void remove(String key) {
+    void remove(const String &key) {
         size_t hash = hashFunction(key);
         Entry* entry = table[hash];
         Entry* prev = nullptr;
@@ -102,7 +111,7 @@ public:
                     table[hash] = entry->next;
                 }
                 delete entry;
-                this->numElements--;
+                --this->numElements;
                 return;
             }
             prev = entry;
@@ -114,7 +123,7 @@ public:
         for (size_t i = 0; i < TABLE_SIZE; i++) {
             Entry* entry = table[i];
             while (entry != nullptr) {
-                Entry* prev = entry;
+                const Entry* prev = entry;
                 entry = entry->next;
                 delete prev;
             }
@@ -123,7 +132,7 @@ public:
         this->numElements = 0;
     }
 
-    U& operator[](String key) {
+    U& operator[](const String &key) {
         size_t hash = hashFunction(key);
         Entry* entry = table[hash];
         while (entry != nullptr) {
@@ -134,13 +143,16 @@ public:
         }
         entry = new Entry{key, U(), table[hash]};
         table[hash] = entry;
-        this->numElements++;
+        ++this->numElements;
         return entry->value;
     }
 
     size_t size() const {
         return this->numElements;
     }
+
+    VHashTable(const VHashTable&) = delete;
+    VHashTable& operator=(const VHashTable&) = delete;
 
 };
 

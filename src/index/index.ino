@@ -9,6 +9,9 @@
 #include "../app/libs/server/v_server/v_server.h"
 #include "../app/libs/v_timer/v_timer.h"
 #include "../app/controller/ping_info_controller.h"
+#include "../app/controller/ota_controller.h"
+#include "../app/controller/auth_controler.h"
+#include "../app/controller/personal_account_controller.h"
 
 static const uint8_t logo[] PROGMEM = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -31,21 +34,25 @@ const int CONTROL_PIN = 1;
 Display display;
 VServer vServer(80);
 
-StaticController staticController;
-SsidController ssidController;
-PingInfoController pingInfoController;
+StaticController staticController(&vServer);
+SsidController ssidController(&vServer);
+PingInfoController pingInfoController(&vServer);
+OtaController otaController(&vServer);
+AuthController authController(&vServer);
+PersonalAccountController personalAccountController(&vServer,&pingInfoController);
+
 boolean isAccessPoint = false;
 VTimer vTimer;
 Ping ping;
 unsigned long tick = 0;
 
-void log(String str) {
+void log(const String &str) {
     display.clear();
     display.drawText(0,0,str);
     display.update();
 }
 
-void printIp(String note, IPAddress ip) {
+void printIp(const String &note, const IPAddress &ip) {
     log(
         note + ":\n" +
         ip[0] + "." + ip[1] + ".\n" +
@@ -66,30 +73,41 @@ void setup() {
 
     display.begin(); // 72X40
     display.setOffset(36,25);
+
     log("Svitlo\nLoading...");
-    delay(1000);
+    delay(400);
 
     display.clear();
     display.drawBitmap(0,0,63,32,logo);
     display.update();
     delay(3000);
 
+    log(FirmwareVersion::getFirmwareVersion());
+    delay(1000);
+
     isAccessPoint = digitalRead(CONTROL_PIN)==LOW;
-    PingInfoController::isAccessPoint = isAccessPoint;
+    pingInfoController.isAccessPoint = isAccessPoint;
     if (isAccessPoint) {
-        IPAddress addr = vServer.setupAsAccessPoint();
+        const IPAddress addr = vServer.setupAsAccessPoint();
         printIp("hot spot", addr);
     }
     else {
         Preferences preferences;
         preferences.begin("app", false);
-        String ssid = preferences.getString("ssid","");
-        String password = preferences.getString("password","");
-        String ep   = preferences.getString("ep", "");
-        String id   = preferences.getString("id", "");
-        String spot = preferences.getString("spot", "");
-        long time = preferences.getLong("time",60L);
+        const String ssid           = preferences.getString("ssid","");
+        const String password       = preferences.getString("password","");
+        const String ep             = preferences.getString("ep", "");
+        const String id             = preferences.getString("id", "");
+        const String spot           = preferences.getString("spot", "");
+        const long   time           = preferences.getLong("time",60L);
+        const String adminLogin     = preferences.getString("admin-login", "");
+        const String adminPassword  = preferences.getString("admin-password", "");
         preferences.end();
+
+        VAuth::setDefaultCreds("eSvitlo","pass123");
+        if (!adminLogin.isEmpty() && !adminPassword.isEmpty()) {
+            VAuth::setCreds(adminLogin, adminPassword);
+        }
 
         if (time<=0) {
             log("bad time!");
@@ -101,48 +119,51 @@ void setup() {
         else {
             log("connecting to:\n " + ssid);
         }
-        IPAddress addr = vServer.setupAsWifiClient(ssid,password);
+        const IPAddress addr = vServer.setupAsWifiClient(ssid,password);
         printIp("WIFI", addr);
         delay(4500);
         log("ping...");
-
-        String url = ep + "/send?chat_id=" + VStrings::uriEncode(id);
-        if (!spot.isEmpty()) {
-            url += "&spot_id=" + VStrings::uriEncode(spot);
-        }
-        ping.setUrl(url);
-
-        vTimer.callback = [](){
-            const PingResponse result = ping.call();
-            tick++;
-            PingInfoController::tick = tick;
-
-            display.clear();
-            if (result.code==200) {
-                display.drawText(
-                    0,0,
-                    String(tick) + "\n" + VStrings::replaceAll(result.message,' ',"\n")
-                );
-                PingInfoController::lastPingResponse = result.message;
-            }
-            else {
-                display.drawText(0,0,"tick: " + String(tick) + "\n" + result.code + "\n" + result.message);
-            }
-            display.update();
-        };
-        delay(4500);
-        vTimer.start(time*1000);
+        //
+        // String url = ep + "/send?chat_id=" + VStrings::uriEncode(id);
+        // if (!spot.isEmpty()) {
+        //     url += "&spot_id=" + VStrings::uriEncode(spot);
+        // }
+        // ping.setUrl(url);
+        //
+        // vTimer.callback = [](){
+        //     const PingResponse result = ping.call();
+        //     tick++;
+        //     pingInfoController.tickCnt = tick;
+        //
+        //     display.clear();
+        //     if (result.code==200) {
+        //         display.drawText(
+        //             0,0,
+        //             String(tick) + "\n" + VStrings::replaceAll(result.message,' ',"\n")
+        //         );
+        //         pingInfoController.lastPingResponse = result.message;
+        //     }
+        //     else {
+        //         const String err = String(result.code) + "\n" + result.message;
+        //         display.drawText(0,0,String(tick) + "\n" + err);
+        //         pingInfoController.lastPingResponse = err;
+        //     }
+        //     display.update();
+        // };
+        // delay(4500);
+        // vTimer.start(time*1000);
 
     }
-    VRouteRegistry::registerController(staticController);
-    VRouteRegistry::registerController(ssidController);
-    VRouteRegistry::registerController(pingInfoController);
+    vServer.getRegistry()->registerController(&staticController);
+    vServer.getRegistry()->registerController(&ssidController);
+    vServer.getRegistry()->registerController(&pingInfoController);
+    vServer.getRegistry()->registerController(&otaController);
+    vServer.getRegistry()->registerController(&authController);
+    vServer.getRegistry()->registerController(&personalAccountController);
 }
 
-
 void loop() {
-    vServer.loop();
-    vServer.listenToNextClient();
+    //vServer.tick();
     vTimer.tick();
     delay(1);
 }

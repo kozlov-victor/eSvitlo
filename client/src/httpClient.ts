@@ -69,12 +69,12 @@ export namespace HttpClient {
                 } else {
                     let response:any;
                     try{
-                        response = JSON.parse(xhr.response);
+                        if (xhr.response) response = JSON.parse(xhr.response);
                     } catch (e) {
                         response = xhr.response;
                     }
                     if (data.error) data.error({status:xhr.status,error:xhr.statusText,response});
-                    rejectFn(response);
+                    rejectFn({status:xhr.status,error:xhr.statusText,response});
                 }
                 clearTimeout(abortTmr);
                 resolved = true;
@@ -82,7 +82,7 @@ export namespace HttpClient {
         };
         xhr.onerror = e=>{
             if (data.error) data.error({status:xhr.status,error:xhr.statusText,response: e});
-            rejectFn(e);
+            rejectFn({status:xhr.status,error:xhr.statusText,response: e});
         };
         xhr.open(data.method,data.url,true);
         if (data.setup) data.setup(xhr);
@@ -105,7 +105,7 @@ export namespace HttpClient {
                 if (resolved) return;
                 xhr.abort();
                 if (data.ontimeout) data.ontimeout();
-                rejectFn('timeout');
+                rejectFn({status:xhr.status,error:xhr.statusText,response: 'timeout'});
             },data.timeout);
         }
         return promise as Promise<T>;

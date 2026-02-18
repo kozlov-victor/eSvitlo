@@ -1,15 +1,20 @@
+#pragma once
+
 #include <Arduino.h>
 #include <Preferences.h>
 #include "../libs/server/v_base_controller/v_base_controller.h"
-#include "../libs/server/v_route_registry/v_route_registry.h"
+#include "../libs/server/v_server/v_server.h"
 #include "../libs/server/v_request/v_request.h"
 #include "../libs/server/v_response/v_response.h"
 #include "../libs/server/v_table_multi_type/v_table_multi_type.h"
+#include "../libs/server/v_auth/v_auth.h"
 
 class SsidController: public VBaseController {
 public:
+    explicit SsidController(VServer *server) : VBaseController(server) {}
+
     void initRoutes() override {
-        VRouteRegistry::registerRoute("/ssid/get","GET",[](VRequest* req, VResponse* resp){
+        server->getRegistry()->registerRoute("/ssid/get","GET",this,[](VRequest* req, VResponse* resp){
             VTableMultitype result;
             Preferences preferences;
             preferences.begin("app", false);
@@ -23,7 +28,7 @@ public:
             preferences.end();
             resp->writeJson(result);
         });
-        VRouteRegistry::registerRoute("/ssid/save","POST",[](VRequest* req, VResponse* resp){
+        server->getRegistry()->registerRoute("/ssid/save","POST",this,[](VRequest* req, VResponse* resp){
             Preferences preferences;
             preferences.begin("app", false);
             preferences.putString("ssid",req->params->getString("ssid").c_str());
@@ -39,4 +44,9 @@ public:
             resp->writeJson(result);
         });
     }
+
+    boolean authorise(VRequest *request) override {
+        return VAuth::checkToken(request);
+    }
+
 };

@@ -1,19 +1,25 @@
 import {VEngineTsxFactory} from "@engine/renderable/tsx/_genetic/vEngineTsxFactory.h";
-import {Frame} from "../components/frame";
+import {Frame} from "../../components/frame";
 import {Reactive} from "@engine/renderable/tsx/decorator/reactive";
-import {DomRootComponent} from "@engine/renderable/tsx/dom/domRootComponent";
-import {HttpClient} from "../httpClient";
-import {StatusBar} from "../components/statusBar";
+import {StatusBar} from "../../components/statusBar";
 import {DI} from "@engine/core/ioc";
 import {SsidValidator} from "./ssid.validator";
 import {ISsid, ITickInfo} from "./model";
-import {SignalLevel} from "../components/signal_level/SignalLevel";
+import {SignalLevel} from "../../components/signal_level/SignalLevel";
+import {BaseTsxComponent} from "@engine/renderable/tsx/base/baseTsxComponent";
+import {MainService} from "./main.service";
+import {Router} from "../../router";
+import {DialogService} from "../../components/modal/dialog.service";
+import {AuthService} from "../../service/auth.service";
 
-@DI.CSS('./main.widget.css')
-export class MainWidget extends DomRootComponent {
+@DI.Injectable()
+export class MainWidget extends BaseTsxComponent {
 
-    @DI.Inject(SsidValidator)
-    private readonly validator: SsidValidator;
+    @DI.Inject(SsidValidator) private readonly validator: SsidValidator;
+    @DI.Inject(MainService) private readonly mainService: MainService;
+    @DI.Inject(AuthService) private readonly authService: AuthService;
+    @DI.Inject(Router) private readonly router: Router;
+    @DI.Inject(DialogService) private readonly dialogService: DialogService;
 
     private result = '';
     private success: boolean;
@@ -21,42 +27,46 @@ export class MainWidget extends DomRootComponent {
     private model = {} as ISsid;
     private tickInfo: ITickInfo;
     @Reactive.Property() private loading: boolean;
+    private tid: any;
 
     @Reactive.Method()
     override async onMounted() {
         super.onMounted();
         this.loading = true;
         try {
-            this.model = await HttpClient.get<ISsid>('/ssid/get');
+            this.model = await this.mainService.getSsid();
             this.loading = false;
         }
         catch (e) {
             console.log('error',e);
-            this.success = false;
-            this.result = 'Помилка завантаження даних';
+            this.showStatusBar('Помилка завантаження даних',false);
         }
         await this.getTickInfo();
         if (!this.tickInfo.isAccessPoint) {
-            setInterval(async ()=>{
+            this.tid = setInterval(async ()=>{
                 await this.getTickInfo();
             },10_000);
         }
     }
 
+
+    override onDestroyed() {
+        super.onDestroyed();
+        clearInterval(this.tid);
+    }
+
     @Reactive.Method()
     private async getTickInfo() {
-        this.tickInfo = (await HttpClient.get<ITickInfo>('/ping/getTickInfo'));
+        this.tickInfo = await this.mainService.getTickInfo();
     }
 
     private validate() {
         const result = this.validator.validate(this.model);
         if (!result.success) {
-            this.success = false;
-            this.result = result.message;
+            this.showStatusBar(result.message,false);
         }
         else {
-            this.success = true;
-            this.result = '';
+            this.showStatusBar('',true);
         }
         return result.success;
     }
@@ -92,21 +102,45 @@ export class MainWidget extends DomRootComponent {
         if (!this.validate()) return;
         try {
             this.pending = true;
-            const resp = await HttpClient.post<{success:boolean}>('/ssid/save',model);
-            this.success = resp?.success ?? false;
-            this.result = this.success?'Збережено':'Помилка збереження';
+            const resp = await this.mainService.save(model);
+            this.showStatusBar(resp.success?'Збережено':'Помилка збереження',resp?.success ?? false);
         }
         catch (e) {
-            this.success = false;
-            this.result = 'Помилка збереження';
+            this.showStatusBar('Помилка збереження',false);
         }
         finally {
             this.pending = false;
         }
     }
 
+    @Reactive.Method()
     private async restart() {
-        await HttpClient.post<{success:boolean}>('/ping/restart');
+        this.showStatusBar('Рестарт...',true);
+        await this.mainService.restart();
+        await this.dialogService.alert('Рестарт здійснено успішно');
+        this.showStatusBar('',true);
+    }
+
+    @Reactive.Method()
+    private checkUpdate() {
+        this.router.navigate('update');
+    }
+
+    @Reactive.Method()
+    private logout() {
+        this.authService.logout();
+        this.router.navigate('login');
+    }
+
+    @Reactive.Method()
+    private showStatusBar(result: string, success: boolean) {
+        this.result = result;
+        this.success = success;
+    }
+
+    @Reactive.BoundedContext()
+    private toPersonalAccount() {
+        this.router.navigate('personal-account');
     }
 
     render(): JSX.Element {
@@ -195,6 +229,7 @@ export class MainWidget extends DomRootComponent {
                                     <td>
                                         <input
                                             value={''+this.model.time}
+                                            type={'tel'}
                                             onchange={e => this.setValue(e,'time',Number)}
                                         />
                                     </td>
@@ -203,7 +238,6 @@ export class MainWidget extends DomRootComponent {
                             </table>
                         </div>
                         <button onclick={this.save}>Зберегти</button>
-                        <button onclick={this.restart}>Рестарт</button>
                     </>
                 }
                 {this.tickInfo &&
@@ -220,6 +254,19 @@ export class MainWidget extends DomRootComponent {
                 }
                 {this.pending && <>Запит в обробці...</>}
                 {this.result && <StatusBar success={this.success} text={this.result}/>}
+
+                <hr/>
+                <button onclick={this.restart}>Рестарт</button>
+                {
+                    this.tickInfo?.isAccessPoint===false &&
+                    <button onclick={this.checkUpdate}>Перевірити оновлення</button>
+                }
+                {
+                    this.tickInfo?.isAccessPoint===true &&
+                    <button onclick={this.toPersonalAccount}>Змінити пароль адміністратора</button>
+                }
+                <button onclick={this.logout}>Вийти</button>
+
             </Frame>
         );
     }
