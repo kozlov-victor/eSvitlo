@@ -20,7 +20,15 @@ function getLocalIPs() {
     return results;
 }
 
-const createResponse = (res,fileUrl,contentType)=>{
+const createResponse = (req,res,fileUrl,contentType)=>{
+
+    const user = req.headers['X-eSvitlo-app'];
+
+    if (!user) {
+        res.writeHead(403);
+        return res.end('Not allowed');
+    }
+
     if (!fs.existsSync(fileUrl)) {
         res.writeHead(404);
         return res.end('Firmware not found');
@@ -45,12 +53,12 @@ const createResponse = (res,fileUrl,contentType)=>{
 
 const server = http.createServer((req, res) => {
     console.log(req.url);
-    if (req.url === '/firmware.bin') {
+    if (req.url === '/upgrade') {
         console.log('Firmware requested');
-        createResponse(res,basePath + 'index.ino.bin','application/octet-stream');
+        createResponse(req,res,basePath + 'index.ino.bin','application/octet-stream');
     }
-    else if (req.url==="/version.json") {
-        createResponse(res,basePath + 'version.json','application/json');
+    else if (req.url==="/update") {
+        createResponse(req,res,basePath + 'version.json','application/json');
     }
     else {
         res.writeHead(200);

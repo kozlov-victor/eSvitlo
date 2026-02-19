@@ -34,9 +34,9 @@ public:
     }
 
     void initRoutes() override {
-        server->getRegistry()->registerRoute("/ota/update","POST",this,[](VRequest* req, VResponse* resp){
-            String url = self->getEp() + "/firmware.bin";
-            OtaResult otaResult = self->otaAgent->loadUpdate(url);
+        server->getRegistry()->registerRoute("/ota/upgrade","POST",this,[](VRequest* req, VResponse* resp){
+            const String url = self->getEp() + "/upgrade";
+            const OtaResult otaResult = self->otaAgent->loadUpdate(url);
             Serial.println(otaResult.body);
             VTableMultitype result;
             result.putString("status",otaResult.body);
@@ -48,7 +48,7 @@ public:
             result.putString("version",FirmwareVersion::getFirmwareVersion());
             resp->writeJson(result);
         });
-        server->getRegistry()->registerRoute("/ota/lastVersion","POST",this,[](VRequest* req, VResponse* resp){
+        server->getRegistry()->registerRoute("/ota/update","POST",this,[](VRequest* req, VResponse* resp){
             const String ep = self->getEp();
             VTableMultitype result;
             if (ep.isEmpty()) {
@@ -56,8 +56,8 @@ public:
                 result.putString("error","bad endpoint");
             }
             else {
-                const String url = ep + "/version.json";
-                OtaResult otaResult = self->otaAgent->getLastVersion(url);
+                const String url = ep + "/update";
+                const OtaResult otaResult = self->otaAgent->getLastVersion(url);
 
                 result.putBoolean("success",otaResult.success);
                 if (otaResult.success) {

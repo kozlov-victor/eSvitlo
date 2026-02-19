@@ -14,7 +14,7 @@
 class VServer {
 private:
     WiFiServer *server;
-    VRouteRegistry* registry;
+    VRouteRegistry *registry;
 
     void listenToNextClient() {
         WiFiClient client = server->available();
@@ -23,20 +23,19 @@ private:
 
         String method = "";
         String url = "";
-        VHashTable<String> headers;
+        VHashTable<String> requestHeaders;
         VTableMultitype params;
 
-        readRequest(client, &method, &url, &headers, &params);
+        readRequest(client, &method, &url, &requestHeaders, &params);
 
-        VRequest req(method, &headers, &params);
-        VResponse resp(&client);
+        VRequest req(method, &requestHeaders, &params);
+        VHashTable<String> responseHeaders;
+        responseHeaders.put("Connection","close");
+        VResponse resp(&client, &responseHeaders);
+
         if (!registry->handleRequest(url, method, &req, &resp)) {
             Serial.println("Not handled");
-            client.println("HTTP/1.1 404 Not Found");
-            client.println("Connection: close");
-            client.println("Content-type: text/html");
-            client.println();
-            client.println("<h1>404</h1>");
+            resp.writeStatus(V_RESPONSE_NOT_FOUND, "<h1>404</h1>");
         }
         client.flush(); // Ensure all data is sent
         client.stop();
@@ -44,18 +43,19 @@ private:
     }
 
     static void readRequest(WiFiClient &client, String *method, String *url, VHashTable<String> *headers,
-                            const VTableMultitype *params) {
+                            VTableMultitype *params) {
         String currentLine = "";
         boolean isFirstLine = true;
         boolean isBody = false;
         String bodyRaw;
         int contentLengthCnt = 0;
         int contentLength = 0;
+        const int MAX_BODY = 2048;
+        const unsigned long TIMEOUT = 10000;
         unsigned long lastTime = millis();
         unsigned long currTime = lastTime;
 
         while (client.connected()) {
-            const unsigned long TIMEOUT = 10000;
             currTime = millis();
             const unsigned long delta = currTime - lastTime;
             if (delta > TIMEOUT) {
@@ -75,22 +75,25 @@ private:
                             break;
                         }
                     }
+                    if (contentLengthCnt > MAX_BODY) {
+                        Serial.println("too large body");
+                        break;
+                    }
                 }
                 if (c == '\r') continue;
                 if (c == '\n') {
                     // is new line
-                    if (currentLine.length() == 0) {
+                    if (currentLine.isEmpty()) {
                         if (*method == "GET") {
                             break;
                         }
                         if (headers->has("content-length")) {
                             contentLength = headers->get("content-length").toInt();
+                            if (contentLength == 0) {
+                                break;
+                            }
+                            bodyRaw.reserve(contentLength);
                         }
-                        if (contentLength==0) {
-                            // if body is empty
-                            break;
-                        }
-                        bodyRaw.reserve(contentLength);
                         isBody = true;
                     }
                     if (isFirstLine) {
@@ -113,58 +116,71 @@ private:
         parseBody(bodyRaw, params);
     }
 
-    static void parseFirstLine(const String &firstLine, String *method, String *url, const VTableMultitype *params) {
-        const auto parts = VStrings::splitBy(firstLine, ' ');
-        if (parts->size() >= 2) {
-            *method = parts->getAt(0).toString();
-            *url = parts->getAt(1).toString();
-            if (url->indexOf("?") > -1) {
-                const auto urlParts = VStrings::splitBy(parts->getAt(1), '?');
-                *url = urlParts->getAt(0).toString();
-                const StringSegment queryString = urlParts->getAt(1);
-                const auto queryParts = VStrings::splitBy(queryString, '&');
-                for (size_t i = 0; i < queryParts->size(); i++) {
-                    const auto pair = VStrings::splitBy(queryParts->getAt(i), '=');
-                    if (pair->size()>=2) {
-                        params->putString(pair->getAt(0).toString(), pair->getAt(1).toString());
-                    }
-                    else {
-                        params->putString(pair->getAt(0).toString(), "");
-                    }
-                    delete pair;
-                }
-                delete queryParts;
-                delete urlParts;
-            }
-        }
-        delete parts;
-    }
 
     static void parseHeaderLine(const String &line, VHashTable<String> *headers) {
-        const auto pair = VStrings::splitBy(line, ':');
-        if (pair->size() >= 2) {
-            String key = pair->getAt(0).toString();
-            key.trim();
-            key.toLowerCase();
-            String val = pair->getAt(1).toString();
-            val.trim();
-            headers->put(key, val);
-        }
-        delete pair;
+        const int colon = line.indexOf(':');
+        if (colon < 0) return;
+
+        String key = line.substring(0, colon);
+        String val = line.substring(colon + 1);
+
+        key.trim();
+        key.toLowerCase();
+        val.trim();
+
+        headers->put(key, val);
     }
 
-    static void parseBody(const String &bodyRaw, const VTableMultitype *params) {
+    static void parseBody(const String &bodyRaw, VTableMultitype *params) {
         const VTableMultitype body = VTableMultitype::parseJson(bodyRaw);
         params->putAll(body);
+    }
+
+    static void parseQueryString(const String &qs, VTableMultitype *params) {
+        int i = 0;
+        while (i < (int) qs.length()) {
+            int amp = qs.indexOf('&', i);
+            if (amp < 0) amp = qs.length();
+            String pair = qs.substring(i, amp);
+
+            int eq = pair.indexOf('=');
+            if (eq >= 0) {
+                String k = pair.substring(0, eq);
+                String v = pair.substring(eq + 1);
+                params->putString(k, v);
+            } else if (pair.length() > 0) {
+                params->putString(pair, "");
+            }
+            i = amp + 1;
+        }
+    }
+
+    static void parseFirstLine(const String &line, String *method, String *url, VTableMultitype *params) {
+        // line: "GET /path?x=1 HTTP/1.1"
+        const int sp1 = line.indexOf(' ');
+        if (sp1 < 0) return;
+        const int sp2 = line.indexOf(' ', sp1 + 1);
+
+        *method = line.substring(0, sp1);
+        if (sp2 < 0) *url = line.substring(sp1 + 1);
+        else *url = line.substring(sp1 + 1, sp2);
+
+        int q = url->indexOf('?');
+        if (q >= 0) {
+            const String qs = url->substring(q + 1);
+            *url = url->substring(0, q);
+            parseQueryString(qs, params);
+        }
     }
 
     String login;
     String password;
     boolean wifiClient = false;
     unsigned long lastCheck = 0;
+    boolean started = false;
 
 public:
-    explicit VServer(int port):registry(new VRouteRegistry()) {
+    explicit VServer(int port) : registry(new VRouteRegistry()) {
         server = new WiFiServer(port);
     }
 
@@ -181,6 +197,7 @@ public:
         IPAddress addr = WiFi.softAPIP();
         Serial.println(addr);
         server->begin();
+        started = true;
         return addr;
     }
 
@@ -192,7 +209,7 @@ public:
         Serial.println(ssid);
         WiFi.setAutoReconnect(true);
         WiFi.persistent(false);
-        WiFi.begin(ssid, password);
+        WiFi.begin(ssid, pass);
         while (WiFi.status() != WL_CONNECTED) {
             delay(500);
             Serial.print(".");
@@ -204,15 +221,17 @@ public:
         Serial.println("IP address: ");
         Serial.println(addr);
         server->begin();
+        started = true;
         return addr;
     }
 
 
-    VRouteRegistry* getRegistry() const {
+    VRouteRegistry *getRegistry() const {
         return registry;
     }
 
     void tick() {
+        if (!started) return;
         if (wifiClient) {
             if (millis() - lastCheck > 5000) {
                 Serial.println("tick");

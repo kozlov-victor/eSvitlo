@@ -34,7 +34,7 @@ public:
         for (size_t i = 0; i < TABLE_SIZE; i++) {
             Entry* entry = table[i];
             while (entry != nullptr) {
-                const Entry* prev = entry;
+                Entry* prev = entry;
                 entry = entry->next;
                 delete prev;
             }

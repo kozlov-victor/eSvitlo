@@ -31,7 +31,7 @@ export class UpdateWidget extends BaseTsxComponent {
     private async checkVersion() {
         try {
             this.version = (await this.updateService.otaVersion()).version;
-            this.lastVersion = await this.updateService.otaLastVersion();
+            this.lastVersion = await this.updateService.otaUpdate();
         }
         catch (e) {
             console.error(e);
@@ -46,22 +46,28 @@ export class UpdateWidget extends BaseTsxComponent {
     }
 
     @Reactive.BoundedContext()
-    private async otaUpdate() {
+    private async otaUpgrade() {
         const prompt = await this.dialogService.prompt(`Буде встановлене оновлення. не вимикайте прилад`,['Ok','Пізніше']);
         if (!prompt) return;
         let ref = this.dialogService.alertSync('Виконується оновлення...',false);
-        const result = await this.updateService.otaUpdate();
-        await Wait(3000);
-        ref.close();
-        if (!result.success) {
-            await this.dialogService.alert(result.status);
-        }
-        else {
-            ref = this.dialogService.alertSync('Оновлення встановлено. Рестарт системи...',false);
-            await this.mainService.restart();
+        try {
+            const result = await this.updateService.otaUpgrade();
+            await Wait(3000);
             ref.close();
-            ref = this.dialogService.alertSync('Оновлення виконано успішно!',false);
-            location.reload();
+            if (!result.success) {
+                await this.dialogService.alert(result.status);
+            }
+            else {
+                ref = this.dialogService.alertSync('Оновлення встановлено. Рестарт системи...',false);
+                await this.mainService.restart();
+                ref.close();
+                ref = this.dialogService.alertSync('Оновлення виконано успішно!',false);
+                location.reload();
+            }
+        }
+        catch (e) {
+            ref.close();
+            await this.dialogService.alert('Помилка оновлення. Спробуйте ще раз');
         }
     }
 
@@ -85,7 +91,7 @@ export class UpdateWidget extends BaseTsxComponent {
                     <div>Остання доступна версія: {this.lastVersion.version}</div>
                     {
                         this.canUpdate() &&
-                        <button onclick={this.otaUpdate}>Встановити оновлення</button>
+                        <button onclick={this.otaUpgrade}>Встановити оновлення</button>
                     }
                     <button onclick={this.back}>На головну</button>
                 </>

@@ -17,48 +17,65 @@ const VResponseCode V_RESPONSE_NOT_MODIFIED {304, "Not Modified"};
 const VResponseCode V_RESPONSE_FORBIDDEN {403, "Forbidden"};
 const VResponseCode V_RESPONSE_BAD_REQUEST {400, "Bad Request"};
 const VResponseCode V_RESPONSE_UNAUTHORIZED {401, "Unauthorized"};
+const VResponseCode V_RESPONSE_NOT_FOUND {404, "Not Found"};
 
 class VResponse {
 private:
     WiFiClient *client;
+    VHashTable<String> *headers;
+
+    void writeHeader(int code, const String &status, int len) {
+        this->client->printf("HTTP/1.1 %i %s\r\n", code, status.c_str());
+        this->client->printf("Content-Length: %i\r\n",len);
+        this->headers->forEach([this](const String &key, const String &val) {
+            Serial.println(key + " : " + val);
+            this->client->printf("%s: %s\r\n",key.c_str(), val.c_str());
+        });
+        this->client->println(); // The HTTP response starts with blank line
+    }
+
+    void writeResponse(const int code, const String &status, const uint8_t* buffer = nullptr, const int len = 0) {
+        writeHeader(code, status, len);
+        if (buffer) {
+            this->client->write(buffer, len);
+            this->client->println(); // The HTTP response ends with another blank line
+        }
+    }
+
+    void writeResponse(const int code, const String &status, const String &body) {
+        writeHeader(code, status, body.length());
+        this->client->println(body);
+    }
 
 public:
-    explicit VResponse(WiFiClient *c) {
+    explicit VResponse(WiFiClient *c, VHashTable<String> *headers) {
         this->client = c;
+        this->headers = headers;
+    }
+
+    void setContentType(const String &value) {
+        headers->put("Content-type",value);
     }
 
     void writeStatus(const VResponseCode &code) {
-        this->client->println("HTTP/1.1 " + String(code.code) + " " + code.hint);
-        this->client->println("Connection: close");
-        this->client->println();
+        writeResponse(code.code, code.hint);
     }
 
-    void writeText(const String &mimetype, String &resp) {
-        const int len = resp.length();
-        this->client->println("HTTP/1.1 200 Ok");
-        this->client->println("Content-type: " + mimetype);
-        this->client->println("Content-Length: " + String(len));
-        this->client->println(); // The HTTP response starts with blank line
-        this->client->println(resp);// The HTTP response ends with another blank line
+    void writeStatus(const VResponseCode &code, const String &body) {
+        writeResponse(code.code, code.hint, body);
+    }
+
+    void writeText(const String &mimetype, const String &body) {
+        setContentType(mimetype);
+        writeResponse(V_RESPONSE_OK.code,V_RESPONSE_OK.hint,body);
     }
     void writeJson(const VTableMultitype &resp) {
         const String body = resp.stringify();
-        const int len = body.length();
-        this->client->println("HTTP/1.1 200 Ok");
-        this->client->println("Content-type: application/json");
-        this->client->println("Content-Length: " + String(len));
-        this->client->println("Connection: close");
-        this->client->println(); // The HTTP response starts with blank line
-        this->client->println(body); // The HTTP response ends with another blank line
+        writeText("application/json", body);
     }
     void writeBuffer(const V_FILE &file) {
-        this->client->println("HTTP/1.1 200 Ok");
-        this->client->println("Content-type: " + file.mime);
-        this->client->println("Content-Length: " + String(file.size));
-        this->client->println("Connection: close");
-        this->client->println(); // The HTTP response starts with blank line
-        this->client->write(file.buff, file.size);
-        this->client->println(); // The HTTP response ends with another blank line
+        setContentType(file.mime);
+        writeResponse(V_RESPONSE_OK.code,V_RESPONSE_OK.hint,file.buff,file.size);
     }
     void writeBuffer(const V_FILE &file, const VRequest* req, const String &etagExpected) {
         boolean isTheSame = false;
@@ -70,14 +87,9 @@ public:
             writeStatus(V_RESPONSE_NOT_MODIFIED);
         }
         else {
-            this->client->println("HTTP/1.1 200 Ok");
-            this->client->println("Content-type: " + file.mime);
-            this->client->println("Content-Length: " + String(file.size));
-            this->client->println("ETag: " + etagExpected);
-            this->client->println("Connection: close");
-            this->client->println(); // The HTTP response starts with blank line
-            this->client->write(file.buff, file.size);
-            this->client->println(); // The HTTP response ends with another blank line
+            this->headers->put("ETag",etagExpected);
+            setContentType(file.mime);
+            writeBuffer(file);
         }
     }
 };

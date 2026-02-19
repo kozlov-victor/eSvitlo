@@ -71,7 +71,7 @@ public:
             Serial.println("VArrayList::error::");
             Serial.println("VArrayList::error::");
             return this->Array[0];
-        };
+        }
         return this->Array[index];
     }
 

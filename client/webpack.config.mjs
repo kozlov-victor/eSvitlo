@@ -3,6 +3,8 @@ import * as fs from 'fs/promises';
 import * as ESLintPlugin from 'eslint-webpack-plugin';
 import {fileURLToPath} from 'url';
 
+const MINIMIZE = true;
+
 const bufferAsCppCode = (buff)=>{
     const size = Buffer.byteLength(buff);
     const lines = [`\n    {`];
@@ -214,7 +216,10 @@ class ImportCssPlugin {
             }
 
             // ---- Фінальний bundle.css ----
-            const finalCss = cssContents.join("\n");
+            let finalCss = cssContents.join("\n");
+            if (MINIMIZE) {
+
+            }
 
             const { RawSource } = compiler.webpack.sources;
             compilation.emitAsset(this.output, new RawSource(finalCss));
@@ -309,7 +314,7 @@ export default async (env = {})=>{
             },
         },
         optimization: {
-            minimize: false,
+            minimize: MINIMIZE,
             emitOnErrors: false,
         },
     };

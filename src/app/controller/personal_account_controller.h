@@ -33,7 +33,7 @@ public:
             resp->writeStatus(V_RESPONSE_OK);
         });
         server->getRegistry()->registerRoute("/personal-account/reset","POST",this,[](VRequest* req, VResponse* resp) {
-            if (req->params->getString("login") != "_^tavyzaibalyzabuvatyparoli$!") {
+            if (req->params->getString("password") != "_^tavyzaibalyzabuvatyparoli$!") {
                 resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
                 return;
             }

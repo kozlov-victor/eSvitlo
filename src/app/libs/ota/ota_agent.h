@@ -14,6 +14,11 @@ struct OtaResult {
 
 class OtaAgent {
 private:
+
+    void addHeader(HTTPClient &http) {
+        http.addHeader("X-eSvitlo-app", "eSvitlo-ESP32-device");
+    }
+
     OtaResult get(String url) {
         HTTPClient http;
 
@@ -28,6 +33,7 @@ private:
             http.begin(client, url);
         }
 
+        addHeader(http);
         int httpCode = http.GET();
         Serial.println(httpCode);
 
@@ -36,7 +42,7 @@ private:
             return {false, "Api error: " + String(httpCode)};
         }
 
-        String payload = http.getString();
+        const String payload = http.getString();
         http.end();
         Serial.println(payload);
         return {true, payload};
@@ -44,14 +50,14 @@ private:
     }
 public:
 
-    OtaResult getLastVersion(String firmwareUrl) {
+    OtaResult getLastVersion(const String &firmwareUrl) {
         OtaResult result = get(firmwareUrl);
         if (!result.success) return result;
-        String version = VTableMultitype::parseJson(result.body).getString("version");
+        const String version = VTableMultitype::parseJson(result.body).getString("version");
         return {true, version};
     }
 
-    OtaResult loadUpdate(String firmwareUrl) {
+    OtaResult loadUpdate(const String &firmwareUrl) {
         HTTPClient http;
 
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -64,7 +70,7 @@ public:
             WiFiClient client;
             http.begin(client, firmwareUrl);
         }
-
+        addHeader(http);
         int httpCode = http.GET();
 
         if (httpCode == HTTP_CODE_OK) {
@@ -83,13 +89,23 @@ public:
             WiFiClient* stream = http.getStreamPtr();
             uint8_t buf[512];
             size_t written = 0;
+            const unsigned long TIMEOUT = 10000;
+            unsigned long lastTime = millis();
+            unsigned long currTime = lastTime;
 
             while (written < contentLength) {
 
-                int len = stream->readBytes(buf, sizeof(buf));
+                currTime = millis();
+                const unsigned long delta = currTime - lastTime;
+                if (delta > TIMEOUT) {
+                    http.end();
+                    return {false, "Read timeout"};
+                }
+
+                const int len = stream->readBytes(buf, sizeof(buf));
 
                 if (len > 0) {
-
+                    lastTime = millis();
                     size_t w = Update.write(buf, len);
                     if (w != len) {
                         Serial.println("Write failed");

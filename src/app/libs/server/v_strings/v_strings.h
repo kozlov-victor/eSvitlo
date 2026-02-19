@@ -73,7 +73,7 @@ public:
 
 
     static String replaceAll(const String &source, char delimiter, const String &replace) {
-        int len = source.length();
+        const int len = source.length();
 
         // рахуємо, скільки замін потрібно
         int count = 0;
@@ -105,6 +105,51 @@ public:
         return result;
     }
 
+    static String replaceAll(const String &source, char delimiter, const char replace) {
+        String result;
+        result.reserve(source.length());
+        for (size_t i = 0; i < source.length(); ++i) {
+            if (source.charAt(i)==delimiter) {
+                result.setCharAt(i, replace);
+            }
+            else {
+                result.setCharAt(i, source.charAt(i));
+            }
+        }
+        return result;
+    }
+
+    static String padCenter(const String &input,
+                        const size_t targetLength,
+                        const char pad = ' ')
+    {
+        const size_t len = input.length();
+        if (len >= targetLength) return input;
+
+        const size_t totalPadding = targetLength - len;
+        const size_t leftPadding  = totalPadding / 2;
+        const size_t rightPadding = totalPadding - leftPadding;
+
+        String result;
+        result.reserve(targetLength);
+
+        // Тимчасово зробимо строку потрібної довжини
+        result = "";
+        result.reserve(targetLength);
+
+        // Заповнюємо одразу весь буфер пад-символами
+        for (size_t i = 0; i < targetLength; ++i) {
+            result += pad;
+        }
+
+        // Перезаписуємо центр вхідним текстом
+        for (size_t i = 0; i < len; ++i) {
+            result.setCharAt(leftPadding + i, input[i]);
+        }
+
+        return result;
+    }
+
     static String uriEncode(const String &str) {
         String encoded = "";
 
@@ -117,7 +162,7 @@ public:
                  ('0' <= c && c <= '9') ||
                  c == '-' || c == '_' || c == '.' || c == '!' ||
                  c == '~' || c == '*' || c == '\'' || c == '(' || c == ')') {
-                     encoded += (char)c;
+                encoded += (char)c;
                  } else {
                      // кодуємо у UTF-8
                      // Arduino String вже у UTF-8, тому просто беремо байт
@@ -130,6 +175,7 @@ public:
 
         return encoded;
     }
+
 };
 
 #endif

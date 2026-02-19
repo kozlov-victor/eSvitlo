@@ -1,0 +1,10 @@
+partition - minimap SPIFFS
+
+оновлення версії через OTA
+1. Змінити версію в firmware_version
+2. arduino ide - sketch > export compiled binary
+3. cd server-test
+4. node .\extract-version.js
+5. артефакти: app/index/build
+ - index.ino.bin
+ - version.json

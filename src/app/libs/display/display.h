@@ -119,65 +119,6 @@ public:
 
   // Заповнити залитий прямокутник у framebuffer швидко
   // (x,y,w,h) можуть виходити за межі — є обрізання (clipping).
-  void fillRect(int x, int y, int w, int h, bool color = true) {
-    if (w <= 0 || h <= 0) return;
-
-    // Кліпінг у видиму область
-    int x0 = x;
-    int y0 = y;
-    int x1 = x + w - 1;
-    int y1 = y + h - 1;
-
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 >= WIDTH) x1 = WIDTH - 1;
-    if (y1 >= HEIGHT) y1 = HEIGHT - 1;
-    if (x0 > x1 || y0 > y1) return;
-
-    int startPage = y0 >> 3; // /8
-    int endPage = y1 >> 3;
-
-    const int span = x1 - x0 + 1;
-
-    // Маски для часткових сторінок
-    const int a = (y0 & 7); // початковий біт у сторінці
-    const int b = (y1 & 7); // кінцевий біт у сторінці
-    const uint8_t firstMask = (uint8_t) ((0xFFu << a) & 0xFFu);
-    const uint8_t lastMask = (uint8_t) (0xFFu >> (7 - b));
-    const uint8_t fullMask = 0xFF;
-
-    for (int page = startPage; page <= endPage; ++page) {
-      uint8_t mask;
-
-      if (startPage == endPage) {
-        // Прямокутник вмістився в одну сторінку (0..7)
-        mask = (uint8_t) ((0xFFu << a) & (0xFFu >> (7 - b)));
-      } else if (page == startPage) {
-        mask = firstMask;
-      } else if (page == endPage) {
-        mask = lastMask;
-      } else {
-        mask = fullMask;
-      }
-
-      uint8_t *row = &framebuffer[page * WIDTH + x0];
-
-      if (mask == fullMask) {
-        // Повна сторінка по висоті — можна дуже швидко
-        memset(row, color ? 0xFF : 0x00, span);
-      } else {
-        if (color) {
-          for (int i = 0; i < span; ++i) row[i] |= mask;
-        } else {
-          uint8_t inv = (uint8_t) ~mask;
-          for (int i = 0; i < span; ++i) row[i] &= inv;
-        }
-      }
-    }
-  }
-
-  // Заповнити залитий прямокутник у framebuffer швидко
-  // (x,y,w,h) можуть виходити за межі — є обрізання (clipping).
   void fillRect2(int x, int y, int w, int h, bool color = true) {
     if (w <= 0 || h <= 0) return;
 
@@ -202,16 +143,17 @@ public:
 
 
   void update() {
+    const uint8_t PAGES = (HEIGHT + 7) / 8;
+
 #if DISPLAY_TYPE == DISPLAY_SH1106
-    for (uint8_t page = 0; page < 8; page++) {
+    for (uint8_t page = 0; page < PAGES; page++) {
       sendCommand(0xB0 | page);
-      sendCommand(0x02); // нижчий біт стартової адреси
-      sendCommand(0x10); // вищий біт
+      sendCommand(0x02);
+      sendCommand(0x10);
       sendDataBuffer(&framebuffer[page * WIDTH], WIDTH);
     }
 #else
-    // SSD1306 та SSD1315
-    for (uint8_t page = 0; page < 8; page++) {
+    for (uint8_t page = 0; page < PAGES; page++) {
       sendCommand(0xB0 | page);
       sendCommand(0x00);
       sendCommand(0x10);
@@ -284,12 +226,13 @@ private:
     sendCommand(0xAF); // ON
 
 #if DISPLAY_TYPE != DISPLAY_SH1106
+    const uint8_t PAGES = (HEIGHT + 7) / 8;
     sendCommand(0x21);
     sendCommand(0x00);
-    sendCommand(0x7F); // col 0..127
+    sendCommand(WIDTH - 1);
     sendCommand(0x22);
     sendCommand(0x00);
-    sendCommand(0x07); // page 0..7
+    sendCommand(PAGES - 1);
 #endif
   }
 

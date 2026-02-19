@@ -21,9 +21,6 @@ export class ResetAdminDialog extends Dialog<{}, string> {
                         type={'password'} value={this.login} oninput={this.setLogin}/>
                 </div>
                 <div>
-                    <div>
-                        login: {this.login}
-                    </div>
                     <button
                         disabled={!this.login}
                         onclick={e=>this.close(this.login)}

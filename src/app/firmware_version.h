@@ -3,9 +3,7 @@
 #define SVITLO_FIRMWARE_VERSION_H
 #include <Arduino.h>
 
-#include "../app/libs/server/v_strings/v_strings.h"
-
-#define FIRMWARE_VERSION "FW_VERSION=2026.1.16"
+#define FIRMWARE_VERSION "FW_VERSION=2026.1.24"
 
 class FirmwareVersion {
 private:
@@ -16,10 +14,10 @@ public:
         const char* eq = strchr(src, '='); // шукаємо перший '='
 
         if (!eq || *(eq + 1) == '\0') {
-            return ""; // нічого після '='
+            return "";
         }
 
-        return String(eq + 1); // створюємо String тільки з частини після '='
+        return String(eq + 1);
     }
 };
 

@@ -10,13 +10,13 @@ export class UpdateService extends BaseService{
         return await this.post<IVersion>('/ota/version');
     }
 
-    public async otaLastVersion() {
+    public async otaUpdate() {
         //await Wait(1000); return {version: '1.3.4',success: true,error:''} as ILastVersion;
-        return await this.post<ILastVersion>('/ota/lastVersion');
+        return await this.post<ILastVersion>('/ota/update');
     }
 
-    public async otaUpdate() {
+    public async otaUpgrade() {
         //await Wait(1000); return {success: true,status:''};
-        return await this.post<{success:boolean,status:string}>('/ota/update');
+        return await this.post<{success:boolean,status:string}>('/ota/upgrade');
     }
 }
