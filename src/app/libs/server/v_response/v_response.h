@@ -24,27 +24,37 @@ private:
     WiFiClient *client;
     VHashTable<String> *headers;
 
-    void writeHeader(int code, const String &status, int len) {
-        this->client->printf("HTTP/1.1 %i %s\r\n", code, status.c_str());
-        this->client->printf("Content-Length: %i\r\n",len);
-        this->headers->forEach([this](const String &key, const String &val) {
-            Serial.println(key + " : " + val);
-            this->client->printf("%s: %s\r\n",key.c_str(), val.c_str());
+    void writeHeader(int code, const String &status) {
+        client->print("HTTP/1.1 ");
+        client->print(code);
+        client->print(" ");
+        client->print(status);
+        client->print("\r\n");
+
+        headers->forEach([this](const String &key, const String &val) {
+            client->print(key);
+            client->print(": ");
+            client->print(val);
+            client->print("\r\n");
         });
-        this->client->println(); // The HTTP response starts with blank line
+
+        client->print("\r\n");
     }
 
     void writeResponse(const int code, const String &status, const uint8_t* buffer = nullptr, const int len = 0) {
-        writeHeader(code, status, len);
+        writeHeader(code, status);
         if (buffer) {
             this->client->write(buffer, len);
-            this->client->println(); // The HTTP response ends with another blank line
         }
     }
 
     void writeResponse(const int code, const String &status, const String &body) {
-        writeHeader(code, status, body.length());
-        this->client->println(body);
+        writeHeader(code, status);
+        this->client->print(body);
+    }
+
+    void setContentLength(const int val) {
+        this->headers->put("Content-Length",String(val));
     }
 
 public:
@@ -67,6 +77,7 @@ public:
 
     void writeText(const String &mimetype, const String &body) {
         setContentType(mimetype);
+        setContentLength(body.length());
         writeResponse(V_RESPONSE_OK.code,V_RESPONSE_OK.hint,body);
     }
     void writeJson(const VTableMultitype &resp) {
@@ -75,6 +86,10 @@ public:
     }
     void writeBuffer(const V_FILE &file) {
         setContentType(file.mime);
+        setContentLength(file.size);
+        if (file.gzip) {
+            this->headers->put("content-encoding","gzip");
+        }
         writeResponse(V_RESPONSE_OK.code,V_RESPONSE_OK.hint,file.buff,file.size);
     }
     void writeBuffer(const V_FILE &file, const VRequest* req, const String &etagExpected) {
@@ -92,6 +107,19 @@ public:
             writeBuffer(file);
         }
     }
+    void startSSE() {
+        setContentType("text/event-stream");
+        headers->put("Connection","keep-alive");
+        headers->put("Cache-Control","no-cache");
+        writeHeader(V_RESPONSE_OK.code,V_RESPONSE_OK.hint);
+    }
+
+    void sendSSE(const String &data) {
+        client->print("data: ");
+        client->print(data);
+        client->print("\n\n");
+    }
+
 };
 
 #endif

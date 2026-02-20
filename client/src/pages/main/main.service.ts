@@ -34,24 +34,29 @@ export class MainService extends BaseService {
     }
 
     public async restart() {
-        try {
-            await this.post<{success:boolean}>('/ping/restart');
-        }
-        catch (e) {
-            console.error(e);
-        }
-        finally {
-            let cnt = 0;
-            await Wait(1000);
-            while (cnt<25) {
-                await Wait(3000);
-                const alive = (await this.health()).alive;
-                if (alive) {
-                    break;
-                }
-                cnt++;
+        let restarted = false;
+        for (let i=0;i<3;i++) {
+            try {
+                await this.post<{success:boolean}>('/ping/restart');
+                restarted = true;
+                break;
+            }
+            catch (e) {
+                await Wait(1000);
             }
         }
+        if (!restarted) return false;
+        await Wait(1000);
+        let cnt = 0;
+        while (cnt<25) {
+            await Wait(3000);
+            const alive = (await this.health()).alive;
+            if (alive) {
+                return true;
+            }
+            cnt++;
+        }
+        return false;
     }
 
 }

@@ -8,6 +8,7 @@ struct V_FILE
 {
     String mime;
     const uint8_t* buff;
+    boolean gzip;
     size_t size;
 };
 

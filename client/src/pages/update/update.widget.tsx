@@ -45,24 +45,52 @@ export class UpdateWidget extends BaseTsxComponent {
         }
     }
 
+    private getProgress(percent: number) {
+        const width = 300;
+        return (
+            <div>
+                <div>{percent}%</div>
+                <div style={{margin: '0 auto',width:`${width}px`,border:`1px solid gray`,height:`20px`}}>
+                    <div
+                        style={{width:`${width * percent / 100}px`,backgroundColor:'gray',height:`20px`}}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     @Reactive.BoundedContext()
     private async otaUpgrade() {
         const prompt = await this.dialogService.prompt(`Буде встановлене оновлення. не вимикайте прилад`,['Ok','Пізніше']);
         if (!prompt) return;
         let ref = this.dialogService.alertSync('Виконується оновлення...',false);
         try {
-            const result = await this.updateService.otaUpgrade();
-            await Wait(3000);
+            const result = await this.updateService.otaUpgrade(data=>{
+                ref.close();
+                if (data.progress) {
+                    ref = this.dialogService.alertSync(this.getProgress(+data.body),false);
+                }
+                else {
+                    ref = this.dialogService.alertSync(data.body, false);
+                }
+            });
+            console.log(result);
             ref.close();
-            if (!result.success) {
-                await this.dialogService.alert(result.status);
+            if (result.completed && result.success) {
+                ref = this.dialogService.alertSync('Оновлення встановлено. Рестарт системи...',false);
+                await Wait(1000);
+                const restarted = await this.mainService.restart();
+                ref.close();
+                if (restarted) {
+                    ref = this.dialogService.alertSync('Оновлення виконано успішно!',false);
+                    location.reload();
+                }
+                else {
+                    await this.dialogService.alert(`Помилка автоматичного рестарта. Здійсність рестарт самостійно`);
+                }
             }
             else {
-                ref = this.dialogService.alertSync('Оновлення встановлено. Рестарт системи...',false);
-                await this.mainService.restart();
-                ref.close();
-                ref = this.dialogService.alertSync('Оновлення виконано успішно!',false);
-                location.reload();
+                await this.dialogService.alert(result.body);
             }
         }
         catch (e) {

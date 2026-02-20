@@ -22,7 +22,7 @@ function getLocalIPs() {
 
 const createResponse = (req,res,fileUrl,contentType)=>{
 
-    const user = req.headers['X-eSvitlo-app'];
+    const user = req.headers['x-esvitlo-app'];
 
     if (!user) {
         res.writeHead(403);

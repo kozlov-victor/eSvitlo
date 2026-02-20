@@ -6,10 +6,18 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Update.h>
+#include "../server/v_response/v_response.h"
 
 struct OtaResult {
     bool success;
     String body;
+};
+
+struct OtaProgressResult {
+    bool completed = false;
+    boolean progress = false;
+    boolean success = false;
+    String body = "";
 };
 
 class OtaAgent {
@@ -48,6 +56,16 @@ private:
         return {true, payload};
 
     }
+
+
+    static void writeProgress(const OtaProgressResult &result, VTableMultitype &body, VResponse *resp) {
+        body.putBoolean("success", result.success);
+        body.putBoolean("progress", result.progress);
+        body.putBoolean("completed", result.completed);
+        body.putString("body", result.body);
+        resp->sendSSE(body.stringify());
+    }
+
 public:
 
     OtaResult getLastVersion(const String &firmwareUrl) {
@@ -57,33 +75,49 @@ public:
         return {true, version};
     }
 
-    OtaResult loadUpdate(const String &firmwareUrl) {
+    void loadUpgrade(const String &firmwareUrl, VResponse *resp) {
         HTTPClient http;
-
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
+        WiFiClient *clientPtr = nullptr;
+        WiFiClientSecure secureClient;
+        WiFiClient plainClient;
+
         if (firmwareUrl.startsWith("https://")) {
-            WiFiClientSecure client;
-            http.begin(client, firmwareUrl);
+            secureClient.setInsecure();
+            clientPtr = &secureClient;
+        } else {
+            clientPtr = &plainClient;
         }
-        else {
-            WiFiClient client;
-            http.begin(client, firmwareUrl);
-        }
+
+        http.begin(*clientPtr, firmwareUrl);
         addHeader(http);
         int httpCode = http.GET();
+
+        VTableMultitype respMessage;
+        OtaProgressResult progressResult;
 
         if (httpCode == HTTP_CODE_OK) {
             int contentLength = http.getSize();
             Serial.println("Content-Length: " + String(contentLength));
             if (contentLength<=0) {
-                return {false, "bad content length " + String(contentLength)};
+                progressResult.completed = true;
+                progressResult.success = false;
+                progressResult.progress = false;
+                progressResult.body = "bad content length " + String(contentLength);
+                writeProgress(progressResult, respMessage, resp);
+                return;
             }
 
             if (!Update.begin(contentLength)) {
                 Serial.println("Not enough space");
                 http.end();
-                return {false, "No space"};
+                progressResult.completed = true;
+                progressResult.success = false;
+                progressResult.progress = false;
+                progressResult.body = "No space";
+                writeProgress(progressResult, respMessage, resp);
+                return;
             }
 
             WiFiClient* stream = http.getStreamPtr();
@@ -92,14 +126,21 @@ public:
             const unsigned long TIMEOUT = 10000;
             unsigned long lastTime = millis();
             unsigned long currTime = lastTime;
+            int loop = 0;
 
             while (written < contentLength) {
 
                 currTime = millis();
                 const unsigned long delta = currTime - lastTime;
                 if (delta > TIMEOUT) {
+                    Serial.println("Timeout");
                     http.end();
-                    return {false, "Read timeout"};
+                    progressResult.completed = true;
+                    progressResult.success = false;
+                    progressResult.progress = false;
+                    progressResult.body = "Read timeout";
+                    writeProgress(progressResult, respMessage, resp);
+                    return;
                 }
 
                 const int len = stream->readBytes(buf, sizeof(buf));
@@ -110,36 +151,72 @@ public:
                     if (w != len) {
                         Serial.println("Write failed");
                         http.end();
-                        return {false, "Write failed"};
+                        progressResult.completed = true;
+                        progressResult.success = false;
+                        progressResult.progress = false;
+                        progressResult.body = "Write failed";
+                        writeProgress(progressResult, respMessage, resp);
+                        return;
                     }
 
                     written += w;
+                    int progress = written * 100 / contentLength;
                     Serial.println("written: " + String(written));
-
+                    if ((loop % 100)==0) {
+                        progressResult.completed = false;
+                        progressResult.success = true;
+                        progressResult.progress = true;
+                        progressResult.body = String(progress);
+                        writeProgress(progressResult, respMessage, resp);
+                    }
+                    loop++;
                 } else {
-                    delay(1);
+                    yield();
                 }
             }
+
+            progressResult.completed = false;
+            progressResult.success = true;
+            progressResult.progress = true;
+            progressResult.body = String(100);
+            writeProgress(progressResult, respMessage, resp);
 
             if (!Update.isFinished()) {
                 Serial.println("Update not finished");
                 http.end();
                 Serial.println("Error: " + String(Update.getError()));
-                return {false, "Incomplete"};
+                progressResult.completed = true;
+                progressResult.success = false;
+                progressResult.progress = false;
+                progressResult.body = "Incomplete";
+                writeProgress(progressResult, respMessage, resp);
+                return;
             }
 
             if (Update.end()) {
                 Serial.println("Complete");
                 http.end();
-                return {true, "OK"};
+                progressResult.completed = true;
+                progressResult.success = true;
+                progressResult.progress = false;
+                progressResult.body = "OK";
+                writeProgress(progressResult, respMessage, resp);
             } else {
                 http.end();
-                return {false, "Update failed"};
+                progressResult.completed = true;
+                progressResult.success = false;
+                progressResult.progress = false;
+                progressResult.body = "Update failed";
+                writeProgress(progressResult, respMessage, resp);
             }
 
         } else {
             http.end();
-            return {false, "HTTP error " + String(httpCode)};
+            progressResult.completed = true;
+            progressResult.success = false;
+            progressResult.progress = false;
+            progressResult.body = "HTTP error " + String(httpCode);
+            writeProgress(progressResult, respMessage, resp);
         }
     }
 

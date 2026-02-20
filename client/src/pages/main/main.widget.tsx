@@ -116,8 +116,10 @@ export class MainWidget extends BaseTsxComponent {
     @Reactive.Method()
     private async restart() {
         this.showStatusBar('Рестарт...',true);
-        await this.mainService.restart();
-        await this.dialogService.alert('Рестарт здійснено успішно');
+        const result = await this.mainService.restart();
+        await this.dialogService.alert(
+            result? 'Рестарт здійснено успішно': 'Помилка рестарта'
+        );
         this.showStatusBar('',true);
     }
 

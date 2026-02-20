@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as ESLintPlugin from 'eslint-webpack-plugin';
 import {fileURLToPath} from 'url';
+import * as zlib from 'zlib';
 
 const MINIMIZE = true;
 
@@ -23,6 +24,10 @@ const bufferAsCppCode = (buff)=>{
     return lines.join('');
 }
 
+const zip = (buff)=> {
+    return zlib.gzipSync(buff, { level: 9 });
+}
+
 const copyResourcesToCpp = async ()=>{
     const assetsBin = [];
     const eTag = new Date().getTime()+'';
@@ -31,16 +36,19 @@ const copyResourcesToCpp = async ()=>{
     indexHtml =
         indexHtml.replaceAll('${build_no}',eTag);
     assetsBin.push({
+        gzip: true,
         buff: Buffer.from(indexHtml, 'utf-8'),
         name: 'assets_index_html',
         mime: "text/html",
     });
     assetsBin.push({
+        gzip: true,
         buff: await fs.readFile('./out/index.js'),
         name: 'assets_index_js',
         mime: "text/javascript",
     });
     assetsBin.push({
+        gzip: true,
         buff: await fs.readFile('./out/all.css'),
         name: 'assets_all_css',
         mime: "text/css",
@@ -49,10 +57,17 @@ const copyResourcesToCpp = async ()=>{
     for (let f of await fs.readdir('./src/assets')) {
         const buff = await fs.readFile(`./src/assets/${f}`);
         assetsBin.push({
+            gzip: false,
             buff,
             name:'assets_'+f.replaceAll('.','_'),
             mime: "image/png",
         });
+    }
+
+    for (const assetsBinElement of assetsBin) {
+        if (assetsBinElement.gzip) {
+            assetsBinElement.buff = zip(assetsBinElement.buff);
+        }
     }
 
     const cppSource =
@@ -77,6 +92,7 @@ const V_FILE ${f.name} =
 {
     "${f.mime}",
     __${f.name}__,
+    ${f.gzip ?? false},
     ${Buffer.byteLength(f.buff)}
 };
     `;

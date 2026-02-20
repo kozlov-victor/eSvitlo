@@ -1,4 +1,4 @@
-import {HttpClient} from "../httpClient";
+import {HttpClient, IRequestOptions} from "../httpClient";
 import {DI} from "@engine/core/ioc";
 import {AuthService} from "./auth.service";
 import {Router} from "../router";
@@ -14,15 +14,14 @@ export class BaseService {
         }
     }
 
-    private addToken(xhr: XMLHttpRequest) {
-        xhr.setRequestHeader('Authorization',`Bearer ${this.authService.getToken()}`);
+    private getTokenHeader() {
+        return {'Authorization':`Bearer ${this.authService.getToken()}`};
     }
 
-    public async post<T>(url: string, data?: any) {
+    public async post<T>(url: string, data?: any, options: IRequestOptions<T> = {}) {
+        options.headers = this.getTokenHeader();
         try {
-            return await HttpClient.post<T>(url,data,undefined,undefined,xhr => {
-                this.addToken(xhr);
-            });
+            return await HttpClient.post<T>(url,data,options);
         }
         catch (e) {
             this.redirectToLoginPageIfRequired(e);
@@ -32,9 +31,7 @@ export class BaseService {
 
     public async get<T>(url: string, data?: any) {
         try {
-            return await HttpClient.get<T>(url,data,undefined,undefined,xhr => {
-                this.addToken(xhr);
-            });
+            return await HttpClient.get<T>(url,data,{headers: this.getTokenHeader()});
         }
         catch (e) {
             this.redirectToLoginPageIfRequired(e);

@@ -2,6 +2,13 @@ import {DI} from "@engine/core/ioc";
 import {ILastVersion, IVersion} from "../main/model";
 import {BaseService} from "../../service/base.service";
 
+export interface IOtaProgressResult {
+    completed: boolean;
+    progress: boolean;
+    success: boolean;
+    body: string;
+}
+
 @DI.Injectable()
 export class UpdateService extends BaseService{
 
@@ -15,8 +22,21 @@ export class UpdateService extends BaseService{
         return await this.post<ILastVersion>('/ota/update');
     }
 
-    public async otaUpgrade() {
-        //await Wait(1000); return {success: true,status:''};
-        return await this.post<{success:boolean,status:string}>('/ota/upgrade');
+    public async otaUpgrade(onProgress:(data:IOtaProgressResult)=>void) {
+
+        // for (let i=0;i<10;i++) {
+        //     await Wait(2000);
+        //     onProgress({progress:true,body:`${i*10}`,success:true,completed:false});
+        // }
+
+        return await this.post<IOtaProgressResult>(
+            '/ota/upgrade',undefined,
+            {
+                headers: {'Content-Type':'text/event-stream'},
+                onProgress: (data) => {
+                    onProgress(data?.data);
+                }
+            }
+        );
     }
 }

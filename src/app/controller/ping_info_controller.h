@@ -35,15 +35,15 @@ public:
         server->getRegistry()->registerRoute("/ping/restart","POST",this,[](VRequest* req, VResponse* resp){
             VTableMultitype result;
             result.putBoolean("success",true);
-            resp->writeJson(result);
             self->timer = new VTimer();
             self->timer->once = true;
-            self->timer->callback = []() {
+            self->timer->callback = [] {
                 delete self->timer;
                 self->timer = nullptr;
                 ESP.restart();
             };
             self->timer->start(500);
+            resp->writeJson(result);
         });
         server->getRegistry()->registerRoute("/ping/health","POST",this,[](VRequest* req, VResponse* resp){
             VTableMultitype result;

@@ -36,12 +36,8 @@ public:
     void initRoutes() override {
         server->getRegistry()->registerRoute("/ota/upgrade","POST",this,[](VRequest* req, VResponse* resp){
             const String url = self->getEp() + "/upgrade";
-            const OtaResult otaResult = self->otaAgent->loadUpdate(url);
-            Serial.println(otaResult.body);
-            VTableMultitype result;
-            result.putString("status",otaResult.body);
-            result.putBoolean("success",otaResult.success);
-            resp->writeJson(result);
+            resp->startSSE();
+            self->otaAgent->loadUpgrade(url,resp);
         });
         server->getRegistry()->registerRoute("/ota/version","POST",this,[](VRequest* req, VResponse* resp){
             VTableMultitype result;
