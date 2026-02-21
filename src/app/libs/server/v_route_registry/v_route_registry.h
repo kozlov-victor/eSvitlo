@@ -14,24 +14,8 @@ private:
         const char* url;
         const char* method;
         VBaseController* controller;
-
-        void (*invoker)(
-            VBaseController*,
-            VRequest*,
-            VResponse*
-        );
+        void(*handler)(void*,VRequest*, VResponse*);
     };
-
-
-    template<typename T,void (T::*Method)(VRequest*, VResponse*)>
-    static void invoke(
-        VBaseController* base,
-        VRequest* req,
-        VResponse* resp
-    ) {
-        T* real = static_cast<T*>(base);
-        (real->*Method)(req, resp);
-    }
 
     VArrayList<VRouteInfo*> *routes;
     VArrayList<VBaseController*> *controllers;
@@ -45,18 +29,17 @@ public:
           controllers(new VArrayList<VBaseController*>()) {
     }
 
-
-    template<typename T,void (T::*Method)(VRequest*, VResponse*)>
     void registerRoute(
         const char* url,
         const char* method,
-        T* controller
+        VBaseController* controller,
+        void(*handler)(void*,VRequest*, VResponse*)
     ) {
         routes->add(new VRouteInfo{
             url,
             method,
             controller,
-            &invoke<T, Method>
+            handler
         });
     }
 
@@ -73,7 +56,7 @@ public:
                     handleUnauthorised(resp);
                 }
                 else {
-                    route->invoker(
+                    route->handler(
                         route->controller,
                         req,
                         resp

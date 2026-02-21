@@ -35,7 +35,7 @@ public:
     void initRoutes() override {
         Route("/","GET",StaticController,index)
         Route("/out/index.js","GET",StaticController,indexJs)
-        Route("/out/all.css","GET",StaticController,index)
+        Route("/out/all.css","GET",StaticController,allCss)
         Route("/assets/icon.png","GET",StaticController,favicon)
     }
 };

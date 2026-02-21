@@ -4,9 +4,13 @@
 class VServer;
 
 #define Route(url,Method,Controller,ControllerMethod) \
-            server->getRegistry()->registerRoute<Controller,&Controller::ControllerMethod>( \
-            url,Method,this \
-        );
+            server->getRegistry()->registerRoute( \
+                url,Method,this, \
+                [](void* ctx, VRequest* req, VResponse* resp){ \
+                    auto* self = static_cast<Controller*>(ctx); \
+                    self->ControllerMethod(req,resp); \
+                } \
+            );
 
 class VBaseController {
 private:

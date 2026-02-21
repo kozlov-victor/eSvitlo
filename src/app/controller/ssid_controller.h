@@ -47,7 +47,7 @@ public:
 
     void initRoutes() override {
         Route("/ssid/get","GET",SsidController,get);
-        Route("/ssid/save","GET",SsidController,save);
+        Route("/ssid/save","POST",SsidController,save);
     }
 
     boolean authorise(VRequest *request) override {

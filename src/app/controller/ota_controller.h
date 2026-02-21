@@ -34,20 +34,20 @@ public:
         if (otaAgent) delete otaAgent;
     }
 
-    void otaUpgrade(VRequest* req, VResponse* resp) {
+    void upgrade(VRequest* req, VResponse* resp) {
         const String url = getEp() + "/upgrade";
         appService->log("Upgrade...");
         resp->startSSE();
         otaAgent->loadUpgrade(url,resp);
     }
 
-    void otaVersion(VRequest* req, VResponse* resp) {
+    void version(VRequest* req, VResponse* resp) {
         VTableMultitype result;
         result.putString("version",FirmwareVersion::getFirmwareVersion());
         resp->writeJson(result);
     }
 
-    void otaUpdate(VRequest* req, VResponse* resp) {
+    void update(VRequest* req, VResponse* resp) {
         const String ep = getEp();
         VTableMultitype result;
         if (ep.isEmpty()) {
@@ -70,9 +70,9 @@ public:
     }
 
     void initRoutes() override {
-        Route("/ota/upgrade","POST",OtaController,otaUpdate)
-        Route("/ota/version","POST",OtaController,otaVersion)
-        Route("/ota/upgrade","POST",OtaController,otaUpgrade)
+        Route("/ota/upgrade","POST",OtaController,upgrade)
+        Route("/ota/version","POST",OtaController,version)
+        Route("/ota/update","POST",OtaController,update)
     }
 
     boolean authorise(VRequest *request) override {
