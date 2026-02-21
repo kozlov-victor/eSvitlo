@@ -3,9 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include "../v_array_list/v_array_list.h"
 #include "../v_hash_table/v_hash_table.h"
-#include "../v_strings/v_strings.h"
 #include "../v_route_registry/v_route_registry.h"
 #include "../v_request/v_request.h"
 #include "../v_response/v_response.h"

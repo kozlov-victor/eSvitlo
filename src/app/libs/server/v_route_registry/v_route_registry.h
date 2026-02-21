@@ -11,11 +11,28 @@
 class VRouteRegistry {
 private:
     struct VRouteInfo {
-        VBaseController *controller;
-        String url;
-        String method;
-        void (*handler)(VRequest*,VResponse*);
+        const char* url;
+        const char* method;
+        VBaseController* controller;
+
+        void (*invoker)(
+            VBaseController*,
+            VRequest*,
+            VResponse*
+        );
     };
+
+
+    template<typename T,void (T::*Method)(VRequest*, VResponse*)>
+    static void invoke(
+        VBaseController* base,
+        VRequest* req,
+        VResponse* resp
+    ) {
+        T* real = static_cast<T*>(base);
+        (real->*Method)(req, resp);
+    }
+
     VArrayList<VRouteInfo*> *routes;
     VArrayList<VBaseController*> *controllers;
 
@@ -28,11 +45,22 @@ public:
           controllers(new VArrayList<VBaseController*>()) {
     }
 
-    void registerRoute(const String& url, const String &method, VBaseController *controller, void (*handler)(VRequest*,VResponse*)) const {
-        auto* info = new VRouteInfo{controller, url, method, handler};
-        routes->add(info);
+
+    template<typename T,void (T::*Method)(VRequest*, VResponse*)>
+    void registerRoute(
+        const char* url,
+        const char* method,
+        T* controller
+    ) {
+        routes->add(new VRouteInfo{
+            url,
+            method,
+            controller,
+            &invoke<T, Method>
+        });
     }
-    void registerController(VBaseController *ctrl) const {
+
+    void registerController(VBaseController *ctrl) {
         controllers->add(ctrl);
         ctrl->initRoutes();
     }
@@ -45,7 +73,11 @@ public:
                     handleUnauthorised(resp);
                 }
                 else {
-                    route->handler(req,resp);
+                    route->invoker(
+                        route->controller,
+                        req,
+                        resp
+                    );
                 }
                 return true;
             }

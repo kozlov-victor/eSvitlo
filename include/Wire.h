@@ -4,16 +4,16 @@
 
 class Wire_ {
 public:
-    void begin() {}
-    void begin(int,int) {}
-    void beginTransmission(int) {}
-    void write(...) {}
-    uint8_t endTransmission() {}
-    uint8_t endTransmission(bool) {}
-    uint8_t requestFrom(int, int) {}
-    int available() { return 0; }
-    int read() { return 0; }
-    void setClock(int) {}
+    void begin();
+    void begin(int,int);
+    void beginTransmission(int);
+    void write(...);
+    uint8_t endTransmission();
+    uint8_t endTransmission(bool);
+    uint8_t requestFrom(int, int);
+    int available();
+    int read();
+    void setClock(int);
 };
 
 extern Wire_ Wire;

@@ -16,30 +16,38 @@ public:
         server), pingInfoController(pingInfoController) {
     }
 
+    void creds(VRequest* req, VResponse* resp) {
+        Preferences preferences;
+        preferences.begin("app", false);
+        String login = req->params->getString("login");
+        String password = req->params->getString("password");
+        if (login.isEmpty() || password.isEmpty()) {
+            resp->writeStatus(V_RESPONSE_BAD_REQUEST);
+            return;
+        }
+        preferences.putString("admin-login",login.c_str());
+        preferences.putString("admin-password",password.c_str());
+        preferences.end();
+        VAuth::setCreds(login, password);
+        resp->writeStatus(V_RESPONSE_OK);
+    }
+
+    void reset(VRequest* req, VResponse* resp) {
+        if (req->params->getString("password") != "_^tavyzaibalyzabuvatyparoli$!") {
+            resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
+            return;
+        }
+        VAuth::reset();
+        resp->writeStatus(V_RESPONSE_OK);
+    }
+
     void initRoutes() override {
-        server->getRegistry()->registerRoute("/personal-account/creds","POST",this,[](VRequest* req, VResponse* resp){
-            Preferences preferences;
-            preferences.begin("app", false);
-            String login = req->params->getString("login");
-            String password = req->params->getString("password");
-            if (login.isEmpty() || password.isEmpty()) {
-                resp->writeStatus(V_RESPONSE_BAD_REQUEST);
-                return;
-            }
-            preferences.putString("admin-login",login.c_str());
-            preferences.putString("admin-password",password.c_str());
-            preferences.end();
-            VAuth::setCreds(login, password);
-            resp->writeStatus(V_RESPONSE_OK);
-        });
-        server->getRegistry()->registerRoute("/personal-account/reset","POST",this,[](VRequest* req, VResponse* resp) {
-            if (req->params->getString("password") != "_^tavyzaibalyzabuvatyparoli$!") {
-                resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
-                return;
-            }
-            VAuth::reset();
-            resp->writeStatus(V_RESPONSE_OK);
-        });
+        server->getRegistry()->registerRoute<PersonalAccountController,&PersonalAccountController::creds>(
+            "/personal-account/creds","POST",this
+        );
+        server->getRegistry()->registerRoute<PersonalAccountController,&PersonalAccountController::reset>(
+            "/personal-account/reset","POST",this
+        );
     }
 
     boolean authorise(VRequest *) override {

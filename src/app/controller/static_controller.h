@@ -10,28 +10,40 @@
 
 class StaticController: public VBaseController {
 private:
-    static StaticController* self;
     String eTag;
 public:
     explicit StaticController(VServer *server):VBaseController(server) {
-        self = this;
         eTag = FirmwareVersion::getFirmwareVersion() + "_" + E_TAG;
     }
+
+    void index(VRequest* req, VResponse* resp) {
+        resp->writeBuffer(assets_index_html, req, eTag);
+    }
+
+    void indexJs(VRequest* req, VResponse* resp) {
+        resp->writeBuffer(assets_index_js, req, eTag);
+    }
+
+    void allCss(VRequest* req, VResponse* resp) {
+        resp->writeBuffer(assets_all_css, req, eTag);
+    }
+
+    void favicon(VRequest* req, VResponse* resp) {
+        resp->writeBuffer(assets_icon_png, req, eTag);
+    }
+
     void initRoutes() override {
-        server->getRegistry()->registerRoute("/","GET",this,[](VRequest* req, VResponse* resp){
-            resp->writeBuffer(assets_index_html, req, self->eTag);
-        });
-        server->getRegistry()->registerRoute("/out/index.js","GET",this,[](VRequest* req, VResponse* resp){
-            resp->writeBuffer(assets_index_js, req, self->eTag);
-        });
-        server->getRegistry()->registerRoute("/out/all.css","GET",this,[](VRequest* req, VResponse* resp){
-            resp->writeBuffer(assets_all_css, req, self->eTag);
-        });
-        server->getRegistry()->registerRoute("/assets/icon.png","GET",this,[](VRequest* req, VResponse* resp){
-            resp->writeBuffer(assets_icon_png, req, self->eTag);
-        });
+        server->getRegistry()->registerRoute<StaticController,&StaticController::index>(
+            "/","GET", this
+        );
+        server->getRegistry()->registerRoute<StaticController,&StaticController::indexJs>(
+            "/out/index.js","GET", this
+        );
+        server->getRegistry()->registerRoute<StaticController,&StaticController::allCss>(
+            "/out/all.css","GET", this
+        );
+        server->getRegistry()->registerRoute<StaticController,&StaticController::favicon>(
+            "/assets/icon.png","GET", this
+        );
     }
 };
-
-
-StaticController* StaticController::self = nullptr;

@@ -154,7 +154,7 @@ void setup() {
          }
         ping->setUrl(url);
 
-        vTimer->callback = [](){
+        vTimer->onDone(nullptr,[](void*) {
             const PingResponse result = ping->call();
             tick++;
             pingInfoController->tickCnt = tick;
@@ -176,7 +176,7 @@ void setup() {
                 pingInfoController->lastPingResponse = err;
             }
             display->update();
-        };
+        });
         delay(4500);
         vTimer->start(time*1000);
     }

@@ -13,10 +13,9 @@ class OtaController  : public VBaseController {
 
 private:
     OtaAgent* otaAgent;
-    static OtaController* self;
 
     // http://192.168.3.135:8080
-    String getEp() {
+    static String getEp() {
         Preferences preferences;
         preferences.begin("app", false);
         String ep = preferences.getString("ep", "");
@@ -26,50 +25,60 @@ private:
 
 public:
     explicit OtaController(VServer *server):VBaseController(server), otaAgent(new OtaAgent()) {
-        self = this;
+
     }
 
     ~OtaController() override {
         if (otaAgent) delete otaAgent;
     }
 
-    void initRoutes() override {
-        server->getRegistry()->registerRoute("/ota/upgrade","POST",this,[](VRequest* req, VResponse* resp){
-            const String url = self->getEp() + "/upgrade";
-            resp->startSSE();
-            self->otaAgent->loadUpgrade(url,resp);
-        });
-        server->getRegistry()->registerRoute("/ota/version","POST",this,[](VRequest* req, VResponse* resp){
-            VTableMultitype result;
-            result.putString("version",FirmwareVersion::getFirmwareVersion());
-            resp->writeJson(result);
-        });
-        server->getRegistry()->registerRoute("/ota/update","POST",this,[](VRequest* req, VResponse* resp){
-            const String ep = self->getEp();
-            VTableMultitype result;
-            if (ep.isEmpty()) {
-                result.putBoolean("success",false);
-                result.putString("error","bad endpoint");
+    void otaUpgrade(VRequest* req, VResponse* resp) {
+        const String url = getEp() + "/upgrade";
+        resp->startSSE();
+        otaAgent->loadUpgrade(url,resp);
+    }
+
+    void otaVersion(VRequest* req, VResponse* resp) {
+        VTableMultitype result;
+        result.putString("version",FirmwareVersion::getFirmwareVersion());
+        resp->writeJson(result);
+    }
+
+    void otaUpdate(VRequest* req, VResponse* resp) {
+        const String ep = getEp();
+        VTableMultitype result;
+        if (ep.isEmpty()) {
+            result.putBoolean("success",false);
+            result.putString("error","bad endpoint");
+        }
+        else {
+            const String url = ep + "/update";
+            const OtaResult otaResult = otaAgent->getLastVersion(url);
+
+            result.putBoolean("success",otaResult.success);
+            if (otaResult.success) {
+                result.putString("version",otaResult.body);
             }
             else {
-                const String url = ep + "/update";
-                const OtaResult otaResult = self->otaAgent->getLastVersion(url);
-
-                result.putBoolean("success",otaResult.success);
-                if (otaResult.success) {
-                    result.putString("version",otaResult.body);
-                }
-                else {
-                    result.putString("error",otaResult.body);
-                }
+                result.putString("error",otaResult.body);
             }
-            resp->writeJson(result);
-        });
+        }
+        resp->writeJson(result);
+    }
+
+    void initRoutes() override {
+        server->getRegistry()->registerRoute<OtaController,&OtaController::otaUpgrade>(
+            "/ota/upgrade","POST",this
+        );
+        server->getRegistry()->registerRoute<OtaController,&OtaController::otaVersion>(
+            "/ota/version","POST",this
+        );
+        server->getRegistry()->registerRoute<OtaController,&OtaController::otaUpdate>(
+            "/ota/update","POST",this
+        );
     }
 
     boolean authorise(VRequest *request) override {
         return VAuth::checkToken(request);
     }
 };
-
-OtaController* OtaController::self = nullptr;

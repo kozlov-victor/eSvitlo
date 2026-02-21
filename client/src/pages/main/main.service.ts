@@ -50,11 +50,14 @@ export class MainService extends BaseService {
         let cnt = 0;
         while (cnt<25) {
             await Wait(3000);
-            const alive = (await this.health()).alive;
-            if (alive) {
-                return true;
+            try {
+                const alive = (await this.health()).alive;
+                if (alive) {
+                    return true;
+                }
+                cnt++;
             }
-            cnt++;
+            catch (e) {}
         }
         return false;
     }

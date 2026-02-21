@@ -12,16 +12,20 @@ class AuthController  : public VBaseController {
 public:
     explicit AuthController(VServer* server) : VBaseController(server) {}
 
+    void createToken(VRequest* req, VResponse* resp) {
+        const String token = VAuth::createToken(req->params->getString("login"),req->params->getString("password"),60*2);
+        if (token.isEmpty()) {
+            resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
+            return;
+        }
+        VTableMultitype result;
+        result.putString("token",token);
+        resp->writeJson(result);
+    }
+
     void initRoutes() override {
-        server->getRegistry()->registerRoute("/auth/createToken","POST",this,[](VRequest* req, VResponse* resp){
-            const String token = VAuth::createToken(req->params->getString("login"),req->params->getString("password"),60*2);
-            if (token.isEmpty()) {
-                resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
-                return;
-            }
-            VTableMultitype result;
-            result.putString("token",token);
-            resp->writeJson(result);
-        });
+        server->getRegistry()->registerRoute<AuthController,&AuthController::createToken>(
+            "/auth/createToken","POST",this
+        );
     }
 };

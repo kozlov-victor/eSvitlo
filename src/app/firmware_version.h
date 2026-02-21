@@ -3,7 +3,7 @@
 #define SVITLO_FIRMWARE_VERSION_H
 #include <Arduino.h>
 
-#define FIRMWARE_VERSION "FW_VERSION=2026.1.26"
+#define FIRMWARE_VERSION "FW_VERSION=2026.1.27"
 
 class FirmwareVersion {
 private:

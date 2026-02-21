@@ -9,10 +9,16 @@ private:
     unsigned long interval = 1000;
     bool started = false;
     bool firstTick = true;
+    void* context = nullptr;
+    void (*callback)(void*) = nullptr;
 
 public:
-    void (*callback)(void) = nullptr;
     boolean once = false;
+
+    void onDone(void* context, void (*callback)(void*)) {
+        this->context = context;
+        this->callback = callback;
+    }
 
     void start(unsigned long ms) {
         if (ms<=0) return;
@@ -33,13 +39,19 @@ public:
         if (firstTick) {
             firstTick = false;
             lastTime = now;
-            if (!once) callback();
+            if (!once) {
+                if (callback) {
+                    callback(context);
+                }
+            }
             return;
         }
 
         if (now - lastTime >= interval) {
             lastTime = now;
-            callback();
+            if (callback) {
+                callback(context);
+            }
             if (once) started = false;
         }
     }
