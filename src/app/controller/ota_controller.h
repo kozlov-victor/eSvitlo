@@ -70,15 +70,9 @@ public:
     }
 
     void initRoutes() override {
-        server->getRegistry()->registerRoute<OtaController,&OtaController::otaUpgrade>(
-            "/ota/upgrade","POST",this
-        );
-        server->getRegistry()->registerRoute<OtaController,&OtaController::otaVersion>(
-            "/ota/version","POST",this
-        );
-        server->getRegistry()->registerRoute<OtaController,&OtaController::otaUpdate>(
-            "/ota/update","POST",this
-        );
+        Route("/ota/upgrade","POST",OtaController,otaUpdate)
+        Route("/ota/version","POST",OtaController,otaVersion)
+        Route("/ota/upgrade","POST",OtaController,otaUpgrade)
     }
 
     boolean authorise(VRequest *request) override {

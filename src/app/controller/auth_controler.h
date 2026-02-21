@@ -24,8 +24,6 @@ public:
     }
 
     void initRoutes() override {
-        server->getRegistry()->registerRoute<AuthController,&AuthController::createToken>(
-            "/auth/createToken","POST",this
-        );
+        Route("/auth/createToken","POST",AuthController,createToken)
     }
 };

@@ -33,17 +33,9 @@ public:
     }
 
     void initRoutes() override {
-        server->getRegistry()->registerRoute<StaticController,&StaticController::index>(
-            "/","GET", this
-        );
-        server->getRegistry()->registerRoute<StaticController,&StaticController::indexJs>(
-            "/out/index.js","GET", this
-        );
-        server->getRegistry()->registerRoute<StaticController,&StaticController::allCss>(
-            "/out/all.css","GET", this
-        );
-        server->getRegistry()->registerRoute<StaticController,&StaticController::favicon>(
-            "/assets/icon.png","GET", this
-        );
+        Route("/","GET",StaticController,index)
+        Route("/out/index.js","GET",StaticController,indexJs)
+        Route("/out/all.css","GET",StaticController,index)
+        Route("/assets/icon.png","GET",StaticController,favicon)
     }
 };

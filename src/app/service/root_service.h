@@ -67,12 +67,12 @@ private:
         pingService->setUrl(url);
         vTimer->onDone(this,[](void* ctx) {
             auto* self = static_cast<RootService*>(ctx);
-            const PingResponse result = PingService::instance().call();
+            const PingResponse result = self->pingService->call();
             AppService::instance().tickCnt++;
             const auto tick = AppService::instance().tickCnt;
             if (result.code==200) {
                 self->appService->log(
-                    VStrings::padCenter(String(tick),11) +
+                    VStrings::padCenter(String(tick),10) +
                     "\n" +
                     VStrings::replaceAll(result.message,' ',"\n")
                 );
@@ -80,7 +80,7 @@ private:
             }
             else {
                 const String err = String(result.code) + "\n" + result.message;
-                self->appService->log(VStrings::padCenter(String(tick),11) + "\n" + err);
+                self->appService->log(VStrings::padCenter(String(tick),10) + "\n" + err);
                 self->appService->lastPingResponse = err;
             }
         });

@@ -46,13 +46,8 @@ public:
     }
 
     void initRoutes() override {
-
-        server->getRegistry()->registerRoute<SsidController,&SsidController::get>(
-            "/ssid/get","GET", this
-        );
-        server->getRegistry()->registerRoute<SsidController,&SsidController::save>(
-            "/ssid/save","POST", this
-        );
+        Route("/ssid/get","GET",SsidController,get);
+        Route("/ssid/save","GET",SsidController,save);
     }
 
     boolean authorise(VRequest *request) override {

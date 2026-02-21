@@ -54,15 +54,9 @@ public:
     }
 
     void initRoutes() override {
-        server->getRegistry()->registerRoute<PingInfoController,&PingInfoController::getTickInfo>(
-            "/ping/getTickInfo","GET",this
-        );
-        server->getRegistry()->registerRoute<PingInfoController,&PingInfoController::restart>(
-            "/ping/restart","POST",this
-        );
-        server->getRegistry()->registerRoute<PingInfoController,&PingInfoController::health>(
-            "/ping/health","POST",this
-        );
+        Route("/ping/getTickInfo","GET",PingInfoController,getTickInfo)
+        Route("/ping/restart","POST",PingInfoController,restart)
+        Route("/ping/health","POST",PingInfoController,health)
     }
 
     boolean authorise(VRequest *request) override {

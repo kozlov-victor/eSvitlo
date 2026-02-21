@@ -41,12 +41,8 @@ public:
     }
 
     void initRoutes() override {
-        server->getRegistry()->registerRoute<PersonalAccountController,&PersonalAccountController::creds>(
-            "/personal-account/creds","POST",this
-        );
-        server->getRegistry()->registerRoute<PersonalAccountController,&PersonalAccountController::reset>(
-            "/personal-account/reset","POST",this
-        );
+        Route("/personal-account/creds","POST",PersonalAccountController,creds)
+        Route("/personal-account/reset","POST",PersonalAccountController,reset)
     }
 
     boolean authorise(VRequest *) override {

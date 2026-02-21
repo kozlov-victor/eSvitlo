@@ -3,6 +3,11 @@
 #include "../v_request/v_request.h"
 class VServer;
 
+#define Route(url,Method,Controller,ControllerMethod) \
+            server->getRegistry()->registerRoute<Controller,&Controller::ControllerMethod>( \
+            url,Method,this \
+        );
+
 class VBaseController {
 private:
 
