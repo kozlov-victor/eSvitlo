@@ -8,32 +8,31 @@
 #include "../libs/server/v_table_multi_type/v_table_multi_type.h"
 #include "../libs/server/v_auth/v_auth.h"
 #include "../libs/v_timer/v_timer.h"
+#include "../service/app_service.h"
 
 
 class PingInfoController : public VBaseController {
 private:
     VTimer* timer = nullptr;
+    AppService* appService = nullptr;
 public:
 
     explicit PingInfoController(VServer *server): VBaseController(server) {
-
+        appService = &AppService::instance();
     }
-
-    String lastPingResponse = "";
-    boolean isAccessPoint = false;
-    long tickCnt = 0;
 
     void getTickInfo(VRequest* req, VResponse* resp) {
         VTableMultitype result;
-        result.putString("lastPingResponse",lastPingResponse);
-        result.putInt("tick",tickCnt);
+        result.putString("lastPingResponse",appService->lastPingResponse);
+        result.putInt("tick",appService->tickCnt);
         result.putInt("time",millis());
-        result.putBoolean("isAccessPoint", isAccessPoint);
+        result.putBoolean("isAccessPoint", appService->isAccessPoint);
         result.putInt("signal",WiFi.RSSI());
         resp->writeJson(result);
     }
 
     void restart(VRequest* req, VResponse* resp) {
+        appService->log("restart...");
         VTableMultitype result;
         result.putBoolean("success",true);
         timer = new VTimer();

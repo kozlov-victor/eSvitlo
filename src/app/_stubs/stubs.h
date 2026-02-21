@@ -33,6 +33,7 @@
 #include <cstring>  // для memset, memcpy, memmove, memcmp
 #include <cstdint>
 #include <cstddef>
+#include <Arduino.h>
 
 // Arduino типи
 typedef std::uint8_t  byte;
@@ -93,23 +94,24 @@ inline unsigned long millis() { return 0; }
 
 
 // ======================= WiFi =======================
-class WiFi_ {
+class WiFi {
 public:
-    void begin(const char*, const char*) {}
-    void disconnect() {}
-    int status() { return 0; }
+    void begin(const char*, const char*);
+    void disconnect();
+    int status();
 };
-extern WiFi_ WiFi;
 
 class WiFiClient {
 public:
-    bool connect(const char*, uint16_t) { return true; }
-    bool connect(const char*, uint16_t, int timeout) { return true; }
-    size_t write(const uint8_t*, size_t) { return 1; }
-    int read() { return 1; }
-    int available() { return 1; }
-    void stop() {}
-    bool connected() { return true; }
+    bool connect(const char*, uint16_t);
+    bool connect(const char*, uint16_t, int timeout);
+    size_t write(const uint8_t*, size_t);
+    int read();
+    int available();
+    void stop();
+    bool connected();
+    void print(const char*);
+    void flush();
 };
 
 // ======================= ESP32 specific placeholders =======================

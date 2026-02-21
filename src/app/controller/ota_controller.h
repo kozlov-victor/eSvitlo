@@ -8,11 +8,13 @@
 #include "../libs/server/v_table_multi_type/v_table_multi_type.h"
 #include "../libs/ota/ota_agent.h"
 #include "../firmware_version.h"
+#include "../service/app_service.h"
 
 class OtaController  : public VBaseController {
 
 private:
     OtaAgent* otaAgent;
+    AppService* appService;
 
     // http://192.168.3.135:8080
     static String getEp() {
@@ -25,7 +27,7 @@ private:
 
 public:
     explicit OtaController(VServer *server):VBaseController(server), otaAgent(new OtaAgent()) {
-
+        appService = &AppService::instance();
     }
 
     ~OtaController() override {
@@ -34,6 +36,7 @@ public:
 
     void otaUpgrade(VRequest* req, VResponse* resp) {
         const String url = getEp() + "/upgrade";
+        appService->log("Upgrade...");
         resp->startSSE();
         otaAgent->loadUpgrade(url,resp);
     }

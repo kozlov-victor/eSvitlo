@@ -28,7 +28,6 @@ private:
 
         VRequest req(method, &requestHeaders, &params);
         VHashTable<String> responseHeaders;
-        responseHeaders.put("Connection","close");
         VResponse resp(&client, &responseHeaders);
 
         if (!registry->handleRequest(url, method, &req, &resp)) {

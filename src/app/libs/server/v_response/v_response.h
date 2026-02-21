@@ -31,6 +31,7 @@ private:
         client->print(status);
         client->print("\r\n");
 
+        headers->putIfAbsent("Connection","close");
         headers->forEach([this](const String &key, const String &val) {
             client->print(key);
             client->print(": ");

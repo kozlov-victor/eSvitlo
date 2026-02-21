@@ -10,10 +10,9 @@
 
 class PersonalAccountController  : public VBaseController {
 private:
-    PingInfoController* pingInfoController;
+
 public:
-    explicit PersonalAccountController(VServer *server, PingInfoController *pingInfoController) : VBaseController(
-        server), pingInfoController(pingInfoController) {
+    explicit PersonalAccountController(VServer *server) : VBaseController(server) {
     }
 
     void creds(VRequest* req, VResponse* resp) {
@@ -51,6 +50,6 @@ public:
     }
 
     boolean authorise(VRequest *) override {
-        return pingInfoController->isAccessPoint;
+        return AppService::instance().isAccessPoint;
     }
 };

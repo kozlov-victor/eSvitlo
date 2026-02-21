@@ -66,6 +66,10 @@ public:
         ++this->numElements;
     }
 
+    void putIfAbsent(const String &key, const U &value) {
+        if (!has(key)) put(key, value);
+    }
+
     U get(const String &key) const {
         size_t hash = hashFunction(key);
         Entry* entry = table[hash];

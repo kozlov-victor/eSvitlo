@@ -1,16 +1,19 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
-#include "../app/libs/server/v_table_multi_type/v_table_multi_type.h"
+#include "../libs/server/v_table_multi_type/v_table_multi_type.h"
+#include "../libs/server/v_service/v_service.h"
 
 struct PingResponse {
     int code;
     String message;
 };
 
-class Ping {
+class PingService {
 private:
     String url;
+
+Service(PingService)
 
 public:
 
