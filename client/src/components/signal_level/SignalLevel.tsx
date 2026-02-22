@@ -9,6 +9,7 @@ export class SignalLevel extends BaseTsxComponent {
 
     private readonly bars = [
         {base: -100},
+        {base: -95},
         {base: -90},
         {base: -80},
         {base: -70},

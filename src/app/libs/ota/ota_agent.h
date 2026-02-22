@@ -180,6 +180,7 @@ public:
             progressResult.progress = true;
             progressResult.body = String(100);
             writeProgress(progressResult, respMessage, resp);
+            delay(200);
 
             if (!Update.isFinished()) {
                 Serial.println("Update not finished");

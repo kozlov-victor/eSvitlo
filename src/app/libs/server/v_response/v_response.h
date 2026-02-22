@@ -1,7 +1,6 @@
 #ifndef V_RESPONSE_H
 #define V_RESPONSE_H
 
-#include <stdint.h>  // Додаємо цей заголовок для типів uint8_t, uint16_t тощо
 #include <Arduino.h>
 #include <WiFi.h>
 #include "../v_static/v_static.h"
@@ -42,7 +41,7 @@ private:
         client->print("\r\n");
     }
 
-    void writeResponse(const int code, const String &status, const uint8_t* buffer = nullptr, const int len = 0) {
+    void writeResponse(const int code, const String &status, const uint8_t* buffer = nullptr, const unsigned int len = 0) {
         writeHeader(code, status);
         if (buffer) {
             this->client->write(buffer, len);
@@ -54,7 +53,7 @@ private:
         this->client->print(body);
     }
 
-    void setContentLength(const int val) {
+    void setContentLength(const unsigned int val) {
         this->headers->put("Content-Length",String(val));
     }
 

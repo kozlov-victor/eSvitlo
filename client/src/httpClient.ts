@@ -40,30 +40,71 @@ interface SseEvent<T> {
     data:T;
 }
 
-function parseSSEEvent<T>(raw: string):SseEvent<T> {
-    const lines = raw.split("\n");
+class EventStream<T> {
 
-    const event: SseEvent<T> = {
-        event: 'message',
-        data: undefined!,
-    };
+    private lastIndex = 0;
+    private buffer = '';
+    private lastEvent:SseEvent<T>;
+    private xhr:XMLHttpRequest;
 
-    let evt = '';
+    constructor(xhr: XMLHttpRequest) {
+        this.xhr = xhr;
+    }
 
-    lines.forEach(line => {
-        if (line.startsWith('event:')) {
-            evt = line.slice(6).trim();
+    private parseSSEEvent(raw: string):SseEvent<T> {
+        const lines = raw.split("\n");
+
+        const event: SseEvent<T> = {
+            event: 'message',
+            data: undefined!,
+        };
+
+        let evt = '';
+
+        lines.forEach(line => {
+            if (line.startsWith('event:')) {
+                evt = line.slice(6).trim();
+            }
+            else if (line.startsWith('data:')) {
+                evt += line.slice(5).trim();
+            }
+        });
+
+        try {
+            event.data = JSON.parse(evt);
+        } catch {}
+
+        this.lastEvent = event;
+        return event;
+    }
+
+    public processChunk():SseEvent<T>|undefined {
+        const chunk = this.xhr.responseText.substring(this.lastIndex);
+        this.lastIndex = this.xhr.responseText.length;
+
+        if (!chunk) return;
+
+        this.buffer += chunk;
+
+        let boundary;
+        while ((boundary = this.buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = this.buffer.substring(0, boundary);
+            this.buffer = this.buffer.substring(boundary + 2);
+            return this.parseSSEEvent(rawEvent);
         }
-        else if (line.startsWith('data:')) {
-            evt += line.slice(5).trim();
+        return undefined;
+    }
+
+    public processLastChunk() {
+        let ev: SseEvent<T> = undefined!;
+        // якщо в buffer ще щось лишилось (без \n\n)
+        if (this.buffer.trim().length > 0) {
+            ev = this.parseSSEEvent(this.buffer);
+            this.buffer = '';
         }
-    });
-
-    try {
-        event.data = JSON.parse(evt);
-    } catch {}
-
-    return event;
+        if (!ev) ev = this.lastEvent;
+        return ev;
+    }
 }
 
 export namespace HttpClient {
@@ -79,45 +120,22 @@ export namespace HttpClient {
             resolveFn = resolve;
             rejectFn = reject;
         });
-        let lastIndex = 0;
-        let buffer = '';
-
-        function processChunk():SseEvent<T>|undefined {
-            const chunk = xhr.responseText.substring(lastIndex);
-            lastIndex = xhr.responseText.length;
-
-            if (!chunk) return;
-
-            buffer += chunk;
-
-            let boundary;
-            while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-                const rawEvent = buffer.substring(0, boundary);
-                buffer = buffer.substring(boundary + 2);
-                return parseSSEEvent<T>(rawEvent);
-            }
-            return undefined;
-        }
+        const evStream = new EventStream<T>(xhr);
 
         xhr.onreadystatechange=()=> {
             if (xhr.readyState === 3) {
                 if (data.options.onProgress) {
-                    const ev = processChunk();
+                    const ev = evStream.processChunk();
                     if (ev) data.options.onProgress(ev);
                 }
             }
             else if (xhr.readyState===4) {
                 if ( (xhr.status>=200 && xhr.status<=299)) {
                     if (data.options.onProgress) {
-                        // якщо в buffer ще щось лишилось (без \n\n)
-                        let ev = processChunk();
+                        let ev = evStream.processChunk();
                         if (ev) data.options.onProgress(ev);
-                        if (buffer.trim().length > 0) {
-                            ev = parseSSEEvent<T>(buffer);
-                            data.options.onProgress(ev);
-                            buffer = '';
-                        }
-                        resolveFn(ev?.data);
+                        const last = evStream.processLastChunk();
+                        resolveFn(last?.data);
                     }
                     else {
                         let resp = xhr.responseText;

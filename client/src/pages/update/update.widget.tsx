@@ -93,14 +93,15 @@ export class UpdateWidget extends BaseTsxComponent {
                 await this.dialogService.alert(result.body);
             }
         }
-        catch (e) {
+        catch (e:any) {
+            // alert(e?.message ?? e.error ?? e);
             ref.close();
             await this.dialogService.alert('Помилка оновлення. Спробуйте ще раз');
         }
     }
 
     private canUpdate() {
-        return this.version && this.lastVersion.success && this.lastVersion.version!==this.version;
+        return true;//return this.version && this.lastVersion.success && this.lastVersion.version!==this.version;
     }
 
     @Reactive.Method()
