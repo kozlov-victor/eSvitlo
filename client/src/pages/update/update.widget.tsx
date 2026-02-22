@@ -101,7 +101,7 @@ export class UpdateWidget extends BaseTsxComponent {
     }
 
     private canUpdate() {
-        return true;//return this.version && this.lastVersion.success && this.lastVersion.version!==this.version;
+        return this.version && this.lastVersion.success && this.lastVersion.version!==this.version;
     }
 
     @Reactive.Method()
