@@ -1,4 +1,4 @@
-partition - minimap SPIFFS
+partition - minimal SPIFFS
 
 оновлення версії через OTA
 1. Змінити версію в firmware_version
