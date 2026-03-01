@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include "esp_wifi.h"
 #include "../v_hash_table/v_hash_table.h"
 #include "../v_route_registry/v_route_registry.h"
 #include "../v_request/v_request.h"
@@ -13,6 +14,9 @@ class VServer {
 private:
     WiFiServer *server;
     VRouteRegistry *registry;
+    void* context = nullptr;
+    void (*onConnectionLostCb)(void*) = nullptr;
+    void (*onReconnectedCb)(void*) = nullptr;
 
     void listenToNextClient() {
         WiFiClient client = server->available();
@@ -186,6 +190,16 @@ public:
         delete server;
     }
 
+    void onConnectionLost(void* context, void (*callback)(void*)) {
+        this->context = context;
+        this->onConnectionLostCb = callback;
+    }
+
+    void onReconnected(void* context, void (*callback)(void*)) {
+        this->context = context;
+        this->onReconnectedCb = callback;
+    }
+
     IPAddress setupAsAccessPoint() {
         WiFi.mode(WIFI_AP);
         WiFi.softAP("esp32", "12345678");
@@ -206,8 +220,20 @@ public:
         Serial.println(ssid);
         WiFi.setAutoReconnect(true);
         WiFi.persistent(false);
+        WiFi.mode(WIFI_STA);
+
+        wifi_country_t country;
+        strcpy(country.cc, "UA");
+        country.schan = 1;
+        country.nchan = 13;
+        country.max_tx_power = 20;     // обовʼязкове поле в IDF 5
+        country.policy = WIFI_COUNTRY_POLICY_AUTO;
+
+        esp_wifi_set_country(&country);
+
         WiFi.begin(ssid, pass);
         while (WiFi.status() != WL_CONNECTED) {
+            yield();
             delay(500);
             Serial.print(".");
         }
@@ -231,18 +257,17 @@ public:
         if (!started) return;
         if (wifiClient) {
             if (millis() - lastCheck > 5000) {
-                Serial.println("tick");
                 lastCheck = millis();
 
                 if (WiFi.status() != WL_CONNECTED) {
+                    this->onConnectionLostCb(this->context);
                     Serial.println("WiFi lost, reconnecting...");
                     WiFi.disconnect();
                     WiFi.begin(login, password);
                     while (WiFi.status() != WL_CONNECTED) {
-                        delay(1000);
-                        Serial.print("-----reconnecting-----");
-                        Serial.println(WiFi.status());
+                        delay(100);
                     }
+                    this->onReconnectedCb(this->context);
                 }
             }
         }

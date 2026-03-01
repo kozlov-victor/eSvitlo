@@ -66,7 +66,8 @@ private:
         }
         pingService->setUrl(url);
         vTimer->onDone(this,[](void* ctx) {
-            auto* self = static_cast<RootService*>(ctx);
+
+            const auto* self = static_cast<RootService*>(ctx);
             const PingResponse result = self->pingService->call();
             AppService::instance().tickCnt++;
             const auto tick = AppService::instance().tickCnt;
@@ -111,7 +112,7 @@ private:
                 yield();
             }
         }
-        appService->log(String("connecting to:\n ") + ssid);
+        appService->log(String("connecting to:\n") + ssid);
 
         const IPAddress addr = vServer->setupAsWifiClient(ssid,password);
         printIp("WIFI", addr);
@@ -119,11 +120,23 @@ private:
         initPing(ep,id,spot,time);
     }
 
+    void setServerLifeCycleListeners() {
+        vServer->onConnectionLost(this,[](void* ctx) {
+            const auto* self = static_cast<RootService*>(ctx);
+            self->appService->log("Reconnect...");
+        });
+        vServer->onReconnected(this,[](void* ctx) {
+            const auto* self = static_cast<RootService*>(ctx);
+            self->appService->log("Connected!");
+        });
+    }
+
 public:
     explicit RootService() {
         vTimer = new VTimer();
         vServer = new VServer(80);
     }
+
 
     void setup() {
         Serial.begin(115200);
@@ -160,6 +173,7 @@ public:
             initWiFiMode();
         }
         initControllers();
+        setServerLifeCycleListeners();
     }
 
     void loop() {

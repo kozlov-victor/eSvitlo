@@ -9,70 +9,142 @@ struct PingResponse {
     String message;
 };
 
+
 class PingService {
 private:
-    String url;
+    struct ParsedUrl {
+        String host;
+        uint16_t port;
+        String path;
+    };
+    ParsedUrl parsedUrl;
+
+    static ParsedUrl parseUrl(const String& url)
+    {
+        ParsedUrl result;
+        result.port = 80;      // default HTTP
+        result.path = "/";
+
+        String working = url;
+
+        // Прибрати http:// якщо є
+        if (working.startsWith("http://")) {
+            working.remove(0, 7);
+        }
+
+        // Відділити path
+        int slashIndex = working.indexOf('/');
+        if (slashIndex != -1) {
+            result.path = working.substring(slashIndex);
+            working = working.substring(0, slashIndex);
+        }
+
+        // Перевірити порт
+        int colonIndex = working.indexOf(':');
+        if (colonIndex != -1) {
+            result.host = working.substring(0, colonIndex);
+            result.port = working.substring(colonIndex + 1).toInt();
+        } else {
+            result.host = working;
+        }
+
+        return result;
+    }
 
 Service(PingService)
 
 public:
 
+    explicit PingService() = default;
+
     void setUrl(const String &url) {
-        this->url = url;
+        this->parsedUrl = parseUrl(url);
     }
 
-    PingResponse call() {
+    PingResponse call() const {
         if (WiFi.status() != WL_CONNECTED) {
-            return {-1, "wifi disconnected"};
+            return {-1, "no wifi"};
         }
 
         WiFi.setSleep(false);
+        esp_wifi_set_ps(WIFI_PS_NONE);
 
         constexpr int MAX_RETRIES = 3;
         constexpr int RETRY_DELAY_MS = 500;
+        constexpr int TIMEOUT = 10000;
         PingResponse resp{-1,"UNKNOWN"};
 
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            WiFiClient client;
-            HTTPClient http;
-
             if (attempt>1) {
                 Serial.print("attempt ");
                 Serial.println(attempt);
             }
-            Serial.println("url: " + url);
 
-            http.setTimeout(8000);
-            http.begin(client, url);
+            WiFiClient client;
+            client.setTimeout(TIMEOUT);
 
-            int code = http.GET();
-            Serial.print("HTTP Response code: "); Serial.println(code);
-            resp.code = code;
+            Serial.print("Connecting to ");
+            Serial.println(parsedUrl.host);
+            Serial.println(parsedUrl.port);
 
-            if (code > 0) {
-                String respText = http.getString();
-                Serial.println(respText);
-                const VTableMultitype pingCallResponse = VTableMultitype::parseJson(respText);
-                String status = pingCallResponse.getString("status");
+            if (!client.connect(parsedUrl.host.c_str(), parsedUrl.port)) {
+                Serial.println("TCP connect failed");
+                resp.message = "TCP failed";
+            }
+            else {
+                // Формуємо HTTP GET вручну
+                client.print(
+                    "GET " + parsedUrl.path + " HTTP/1.1\r\n" +
+                    "Host: " + parsedUrl.host + "\r\n" +
+                    "Connection: close\r\n\r\n"
+                );
+
+                const unsigned long start = millis();
+
+                while (!client.available()) {
+                    if (millis() - start > TIMEOUT) {
+                        Serial.println("Timeout waiting response");
+                        resp.message = "timeout";
+                    }
+                    delay(1);
+                    yield();
+                }
+
+                const String statusLine = client.readStringUntil('\n');
+                Serial.println(statusLine);
+
+                int statusCode = -1;
+                if (statusLine.startsWith("HTTP/1.1")) {
+                    statusCode = statusLine.substring(9, 12).toInt();
+                }
+                resp.code = statusCode;
+
+                // Пропускаємо заголовки
+                while (client.connected()) {
+                    String line = client.readStringUntil('\n');
+                    if (line == "\r") break;
+                }
+
+                const String body = client.readString();
+                Serial.println(body);
+
+                const VTableMultitype pingCallResponse = VTableMultitype::parseJson(body);
+                const String status = pingCallResponse.getString("status");
                 if (status=="OK") {
                     resp.message = pingCallResponse.getString("time");
                 }
                 else {
                     resp.message = pingCallResponse.getString("error");
                     if (resp.message.isEmpty()) {
-                        resp.message = respText;
+                        resp.message = body;
                     }
                 }
-                http.end();
                 client.stop();
                 break;
             }
-
-            http.end();
             client.stop();
-            delay(RETRY_DELAY_MS);
+            delay(RETRY_DELAY_MS * attempt);
         }
-
         return resp;
     }
 

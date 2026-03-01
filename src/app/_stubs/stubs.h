@@ -111,6 +111,7 @@ public:
     void stop();
     bool connected();
     void print(const char*);
+    void print(const String&);
     void print(int);
     void flush();
 };
