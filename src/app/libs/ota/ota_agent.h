@@ -43,14 +43,15 @@ private:
 
         addHeader(http);
         int httpCode = http.GET();
+        const String payload = http.getString();
         Serial.println(httpCode);
+        Serial.println(payload);
 
         if (httpCode != HTTP_CODE_OK) {
             http.end();
             return {false, "Api error: " + String(httpCode)};
         }
 
-        const String payload = http.getString();
         http.end();
         Serial.println(payload);
         return {true, payload};

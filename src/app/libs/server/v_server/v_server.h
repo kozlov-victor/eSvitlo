@@ -17,6 +17,27 @@ private:
     void* context = nullptr;
     void (*onConnectionLostCb)(void*) = nullptr;
     void (*onReconnectedCb)(void*) = nullptr;
+    bool reconnecting = false;
+
+    void checkStatus() {
+        if (wifiClient) {
+            if (millis() - lastCheck > 5000) {
+                lastCheck = millis();
+                if (WiFi.status() != WL_CONNECTED) {
+                    Serial.println("WiFi lost, trying reconnect...");
+                    this->onConnectionLostCb(this->context);
+                    WiFi.reconnect();
+                    reconnecting = true;
+                }
+            }
+            // не блокуємо loop
+            if (reconnecting && WiFi.status() == WL_CONNECTED) {
+                reconnecting = false;
+                Serial.println("WiFi reconnected");
+                this->onReconnectedCb(this->context);
+            }
+        }
+    }
 
     void listenToNextClient() {
         WiFiClient client = server->available();
@@ -111,6 +132,7 @@ private:
                     if (!isBody) currentLine += c;
                 }
             }
+            delay(1);
             yield();
         }
         //Serial.println("bodyRaw = "  + bodyRaw);
@@ -255,22 +277,7 @@ public:
 
     void tick() {
         if (!started) return;
-        if (wifiClient) {
-            if (millis() - lastCheck > 5000) {
-                lastCheck = millis();
-
-                if (WiFi.status() != WL_CONNECTED) {
-                    this->onConnectionLostCb(this->context);
-                    Serial.println("WiFi lost, reconnecting...");
-                    WiFi.disconnect();
-                    WiFi.begin(login, password);
-                    while (WiFi.status() != WL_CONNECTED) {
-                        delay(100);
-                    }
-                    this->onReconnectedCb(this->context);
-                }
-            }
-        }
+        checkStatus();
         listenToNextClient();
         registry->tick();
     }

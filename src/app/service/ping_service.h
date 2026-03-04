@@ -99,19 +99,46 @@ public:
                     "Connection: close\r\n\r\n"
                 );
 
-                const unsigned long start = millis();
 
+                // ===== WAIT FOR RESPONSE =====
+                long start = millis();
                 while (!client.available()) {
                     if (millis() - start > TIMEOUT) {
                         Serial.println("Timeout waiting response");
+                        client.stop();
                         resp.message = "timeout";
+                        break;
                     }
                     delay(1);
                     yield();
                 }
 
-                const String statusLine = client.readStringUntil('\n');
-                Serial.println(statusLine);
+                // ===== READ STATUS LINE =====
+                String statusLine;
+                start = millis();
+
+                while (true) {
+                    if (client.available()) {
+                        char c = client.read();
+                        statusLine += c;
+
+                        if (statusLine.endsWith("\r\n")) {
+                            break;
+                        }
+                    }
+
+                    if (millis() - start > TIMEOUT) {
+                        Serial.println("Status line timeout");
+                        client.stop();
+                        resp.message = "Status timeout";
+                        break;
+                    }
+
+                    delay(1);
+                    yield();
+                }
+
+                statusLine.trim();
 
                 int statusCode = -1;
                 if (statusLine.startsWith("HTTP/1.1")) {
@@ -119,13 +146,37 @@ public:
                 }
                 resp.code = statusCode;
 
-                // Пропускаємо заголовки
-                while (client.connected()) {
-                    String line = client.readStringUntil('\n');
-                    if (line == "\r") break;
+                // ===== SKIP HEADERS =====
+                String headerBuffer;
+                while (client.available()) {
+                    char c = client.read();
+                    headerBuffer += c;
+                    if (headerBuffer.endsWith("\r\n\r\n")) {
+                        break;
+                    }
                 }
 
-                const String body = client.readString();
+                // ===== READ BODY =====
+                String body;
+                start = millis();
+
+                while (client.connected() || client.available()) {
+
+                    while (client.available()) {
+                        body += (char)client.read();
+                        start = millis(); // reset timeout якщо щось прийшло
+                    }
+
+                    if (millis() - start > TIMEOUT) {
+                        Serial.println("Body read timeout");
+                        resp.message = "Body read timeout";
+                        break;
+                    }
+
+                    delay(1);
+                    yield();
+                }
+
                 Serial.println(body);
 
                 const VTableMultitype pingCallResponse = VTableMultitype::parseJson(body);
