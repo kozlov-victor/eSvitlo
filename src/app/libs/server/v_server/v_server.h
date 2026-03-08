@@ -18,14 +18,22 @@ private:
     void (*onConnectionLostCb)(void*) = nullptr;
     void (*onReconnectedCb)(void*) = nullptr;
     bool reconnecting = false;
+    const int MAX_REQ_PER_CONN = 8;
 
     void checkStatus() {
+
+        static uint32_t hb = 0;
+        if (millis() - hb > 5000) {
+            hb = millis();
+            Serial.printf("HB wifi=%d heap=%u min=%u\n", WiFi.status(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
+        }
+
         if (wifiClient) {
             if (millis() - lastCheck > 5000) {
                 lastCheck = millis();
                 if (WiFi.status() != WL_CONNECTED) {
                     Serial.println("WiFi lost, trying reconnect...");
-                    this->onConnectionLostCb(this->context);
+                    if (onConnectionLostCb) onConnectionLostCb(context);
                     WiFi.reconnect();
                     reconnecting = true;
                 }
@@ -34,7 +42,7 @@ private:
             if (reconnecting && WiFi.status() == WL_CONNECTED) {
                 reconnecting = false;
                 Serial.println("WiFi reconnected");
-                this->onReconnectedCb(this->context);
+                if (onReconnectedCb) this->onReconnectedCb(this->context);
             }
         }
     }
@@ -42,24 +50,62 @@ private:
     void listenToNextClient() {
         WiFiClient client = server->available();
         if (!client) return;
+
+        client.setNoDelay(true);
+
+        // чекаємо перший байт недовго (щоб прибирати speculative)
+        const uint32_t FIRST_BYTE_TIMEOUT = 700;
+        uint32_t t0 = millis();
+        while (client.connected() && !client.available() && (millis() - t0) < FIRST_BYTE_TIMEOUT) yield();
+        if (!client.available()) {
+            Serial.println("Speculative connection closed");
+            client.stop();
+            return;
+        }
+
         Serial.println("Accepted new connection");
 
-        String method = "";
-        String url = "";
-        VHashTable<String> requestHeaders;
-        VTableMultitype params;
+        const uint32_t IDLE_BETWEEN_REQUESTS_MS = 400; // скільки чекаємо наступний request на keep-alive
 
-        readRequest(client, &method, &url, &requestHeaders, &params);
+        for (int r = 0; r < MAX_REQ_PER_CONN && client.connected(); r++) {
+            // дочекайся початку наступного request (або вихід по idle)
+            uint32_t t1 = millis();
+            while (client.connected() && !client.available() && (millis() - t1) < IDLE_BETWEEN_REQUESTS_MS) yield();
+            if (!client.available()) break;
 
-        VRequest req(method, &requestHeaders, &params);
-        VHashTable<String> responseHeaders;
-        VResponse resp(&client, &responseHeaders);
+            String method, url;
+            VHashTable<String> requestHeaders;
+            VTableMultitype params;
 
-        if (!registry->handleRequest(url, method, &req, &resp)) {
-            Serial.println("Not handled");
-            resp.writeStatus(V_RESPONSE_NOT_FOUND, "<h1>404</h1>");
+            readRequest(client, &method, &url, &requestHeaders, &params);
+            if (method.length() == 0) break;
+
+            VRequest req(method, &requestHeaders, &params);
+            VHashTable<String> responseHeaders;
+            VResponse resp(&client, &responseHeaders);
+
+            // якщо клієнт явно просить close — закриваємо
+            bool wantClose = false;
+            if (requestHeaders.has("connection")) {
+                String c = requestHeaders.get("connection");
+                c.toLowerCase();
+                if (c.indexOf("close") >= 0) wantClose = true;
+            }
+
+            if (wantClose) {
+                responseHeaders.put("Connection", "close");
+            } else {
+                responseHeaders.put("Connection", "keep-alive");
+                responseHeaders.put("Keep-Alive", "timeout=3, max=8");
+            }
+
+            if (!registry->handleRequest(url, method, &req, &resp)) {
+                resp.writeStatus(V_RESPONSE_NOT_FOUND, "<h1>404</h1>");
+            }
+
+            if (wantClose) break;
         }
-        client.flush(); // Ensure all data is sent
+
         client.stop();
         Serial.println("Client connection closed");
     }
@@ -73,7 +119,7 @@ private:
         int contentLengthCnt = 0;
         int contentLength = 0;
         const int MAX_BODY = 2048;
-        const unsigned long TIMEOUT = 10000;
+        const unsigned long TIMEOUT = 1500;
         unsigned long lastTime = millis();
         unsigned long currTime = lastTime;
 
@@ -109,12 +155,24 @@ private:
                         if (*method == "GET") {
                             break;
                         }
+
+                        // якщо є chunked — зараз не підтримуємо, але й не висимо
+                        if (headers->has("transfer-encoding") &&
+                            headers->get("transfer-encoding").indexOf("chunked") >= 0) {
+                            Serial.println("Chunked request body not supported -> break");
+                            break;
+                        }
+
                         if (headers->has("content-length")) {
                             contentLength = headers->get("content-length").toInt();
                             if (contentLength == 0) {
                                 break;
                             }
                             bodyRaw.reserve(contentLength);
+                        }
+                        else {
+                            Serial.println("Content-length not provided -> break");
+                            break;
                         }
                         isBody = true;
                     }
@@ -132,11 +190,14 @@ private:
                     if (!isBody) currentLine += c;
                 }
             }
-            delay(1);
-            yield();
+            else {
+                yield();
+            }
         }
         //Serial.println("bodyRaw = "  + bodyRaw);
-        parseBody(bodyRaw, params);
+        if (headers->has("content-type") && headers->get("content-type").indexOf("/json") >= 0) {
+            parseBody(bodyRaw, params);
+        }
     }
 
 
@@ -229,7 +290,8 @@ public:
         Serial.print("IP address: ");
         IPAddress addr = WiFi.softAPIP();
         Serial.println(addr);
-        server->begin();
+        server->setNoDelay(true);
+        server->begin(80,MAX_REQ_PER_CONN);
         started = true;
         return addr;
     }
@@ -243,6 +305,9 @@ public:
         WiFi.setAutoReconnect(true);
         WiFi.persistent(false);
         WiFi.mode(WIFI_STA);
+        WiFi.setSleep(false);
+        esp_wifi_set_ps(WIFI_PS_NONE);
+        server->setNoDelay(true);
 
         wifi_country_t country;
         strcpy(country.cc, "UA");
@@ -265,7 +330,7 @@ public:
         IPAddress addr = WiFi.localIP();
         Serial.println("IP address: ");
         Serial.println(addr);
-        server->begin();
+        server->begin(80,MAX_REQ_PER_CONN);
         started = true;
         return addr;
     }

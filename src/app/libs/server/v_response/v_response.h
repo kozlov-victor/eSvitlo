@@ -23,6 +23,34 @@ private:
     WiFiClient *client;
     VHashTable<String> *headers;
 
+    static bool writeAllFromProgmem(WiFiClient& c, const uint8_t* progmem, size_t len) {
+        const size_t CHUNK = 1024;          // 512..1460 теж ок
+        uint8_t tmp[CHUNK];
+
+        size_t sent = 0;
+        while (sent < len && c.connected()) {
+            size_t n = len - sent;
+            if (n > CHUNK) n = CHUNK;
+
+            memcpy_P(tmp, progmem + sent, n); // читаємо з PROGMEM у RAM
+
+            size_t w = c.write(tmp, n);       // скільки реально записалось
+            if (w == 0) {                     // TCP буфер може бути зайнятий
+                delay(1);
+                yield();
+                continue;
+            }
+            sent += w;
+            yield();
+        }
+
+        if (sent != len) {
+            Serial.printf("WARN: sent %u/%u bytes\n", (unsigned)sent, (unsigned)len);
+            return false;
+        }
+        return true;
+    }
+
     void writeHeader(int code, const String &status) {
         client->print("HTTP/1.1 ");
         client->print(code);
@@ -30,7 +58,6 @@ private:
         client->print(status);
         client->print("\r\n");
 
-        headers->putIfAbsent("Connection","close");
         headers->forEach([this](const String &key, const String &val) {
             client->print(key);
             client->print(": ");
@@ -43,8 +70,8 @@ private:
 
     void writeResponse(const int code, const String &status, const uint8_t* buffer = nullptr, const unsigned int len = 0) {
         writeHeader(code, status);
-        if (buffer) {
-            this->client->write(buffer, len);
+        if (buffer && len) {
+            writeAllFromProgmem(*this->client, buffer, len);
         }
     }
 
@@ -94,15 +121,16 @@ public:
     }
     void writeBuffer(const V_FILE &file, const VRequest* req, const String &etagExpected) {
         boolean isTheSame = false;
+        this->headers->put("ETag",etagExpected);
         if (req->headers->has("if-none-match")) {
             const String eTag = req->headers->get("if-none-match");
             isTheSame = eTag==etagExpected;
         }
         if (isTheSame) {
+            setContentLength(0);
             writeStatus(V_RESPONSE_NOT_MODIFIED);
         }
         else {
-            this->headers->put("ETag",etagExpected);
             setContentType(file.mime);
             writeBuffer(file);
         }

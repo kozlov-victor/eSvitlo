@@ -141,7 +141,7 @@ public:
     void setup() {
         Serial.begin(115200);
         delay(300);
-        Serial.println("BOOT");
+        Serial.println("---===START===---");
         Wire.begin(5, 6);
         Wire.setClock(100000);
         delay(200);

@@ -4,7 +4,7 @@
 #include "../app/service/root_service.h"
 
 extern "C" void __attribute__((constructor)) preinit_marker() {
-    esp_rom_printf("PREINIT\n");
+    esp_rom_printf("---===BOOT===---\n");
 }
 
 
