@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
+#include <Preferences.h>
+
 #include "../libs/server/v_base_controller/v_base_controller.h"
 #include "../libs/server/v_request/v_request.h"
 #include "../libs/server/v_response/v_response.h"
@@ -16,7 +18,6 @@ private:
     OtaAgent* otaAgent;
     AppService* appService;
 
-    // http://192.168.3.135:8080
     static String getEp() {
         Preferences preferences;
         preferences.begin("app", false);

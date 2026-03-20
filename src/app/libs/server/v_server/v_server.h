@@ -53,16 +53,6 @@ private:
 
         client.setNoDelay(true);
 
-        // чекаємо перший байт недовго (щоб прибирати speculative)
-        const uint32_t FIRST_BYTE_TIMEOUT = 700;
-        uint32_t t0 = millis();
-        while (client.connected() && !client.available() && (millis() - t0) < FIRST_BYTE_TIMEOUT) yield();
-        if (!client.available()) {
-            Serial.println("Speculative connection closed");
-            client.stop();
-            return;
-        }
-
         Serial.println("Accepted new connection");
 
         const uint32_t IDLE_BETWEEN_REQUESTS_MS = 400; // скільки чекаємо наступний request на keep-alive

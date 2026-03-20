@@ -69,19 +69,25 @@ private:
 
             const auto* self = static_cast<RootService*>(ctx);
             const PingResponse result = self->pingService->call();
-            AppService::instance().tickCnt++;
-            const auto tick = AppService::instance().tickCnt;
+            self->appService->tickCnt++;
             if (result.code==200) {
                 self->appService->log(
-                    VStrings::padCenter(String(tick),10) +
+                    VStrings::padCenter(String(self->appService->tickCnt),10) +
                     "\n" +
-                    VStrings::replaceAll(result.message,' ',"\n")
+                    VStrings::replaceAll(result.message,' ',"\n") +
+                    "\n" +
+                    VStrings::padCenter(String(self->appService->errorCnt),10)
                 );
                 AppService::instance().lastPingResponse = result.message;
             }
             else {
+                self->appService->errorCnt++;
                 const String err = String(result.code) + "\n" + result.message;
-                self->appService->log(VStrings::padCenter(String(tick),10) + "\n" + err);
+                self->appService->log(
+                    VStrings::padCenter(String(self->appService->tickCnt),10) + "\n" +
+                    err + "\n" +
+                    VStrings::padCenter(String(self->appService->errorCnt),10) + "\n"
+                );
                 self->appService->lastPingResponse = err;
             }
         });

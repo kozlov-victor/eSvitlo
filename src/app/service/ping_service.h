@@ -40,7 +40,7 @@ private:
         }
 
         // Перевірити порт
-        int colonIndex = working.indexOf(':');
+        const int colonIndex = working.indexOf(':');
         if (colonIndex != -1) {
             result.host = working.substring(0, colonIndex);
             result.port = working.substring(colonIndex + 1).toInt();

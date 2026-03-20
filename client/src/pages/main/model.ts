@@ -16,6 +16,7 @@ export interface ISsid {
 export interface ITickInfo {
     lastPingResponse: string;
     tick: number;
+    errorCnt: number;
     time: number;
     isAccessPoint: boolean;
     signal: number;

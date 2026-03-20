@@ -3,116 +3,160 @@
 
 #include <Arduino.h>
 
-template <class T>
+template<class T, size_t SBO_SIZE = 8>
 class VArrayList {
 private:
-    T *Array;
+
+    T* Array;
     size_t pointer;
     size_t arrayLength;
 
-    bool needToResize() {
-        return this->pointer == this->arrayLength;
-    }
-    void resize() {
-        size_t newLength = this->arrayLength + 10;
-        T *temp = new T[newLength];
-        for(size_t i = 0; i < this->pointer; i++){
-            temp[i] = this->Array[i];
-        }
-        delete [] this->Array;
-        this->Array = temp;
-        this->arrayLength = newLength;
+    T stackBuffer[SBO_SIZE]; // static buffer object
+
+    bool usingStack() const {
+        return Array == (T*)stackBuffer;
     }
 
-    bool checkRange(size_t index) {
-        return index < this->pointer;
+    bool needToResize() const {
+        return pointer == arrayLength;
+    }
+
+    void resize() {
+        const size_t newLength = arrayLength * 2;
+
+        T* temp = new T[newLength];
+
+        for (size_t i = 0; i < pointer; i++) {
+            temp[i] = Array[i];
+        }
+
+        if (!usingStack()) {
+            delete[] Array;
+        }
+
+        Array = temp;
+        arrayLength = newLength;
+    }
+
+    bool checkRange(size_t index) const {
+        return index < pointer;
     }
 
 public:
-    explicit VArrayList(size_t size=10) {
-        this->Array = new T[size];
-        this->pointer = 0;
-        this->arrayLength = size;
+
+    explicit VArrayList(const size_t size = SBO_SIZE) {
+
+        if (size <= SBO_SIZE) {
+            Array = stackBuffer;
+            arrayLength = SBO_SIZE;
+        } else {
+            Array = new T[size];
+            arrayLength = size;
+        }
+
+        pointer = 0;
     }
 
     ~VArrayList() {
-        delete[] this->Array;
-    }
-
-    void addAt(const T &a, size_t index) {
-        if (!this->checkRange(index)) return;
-        if(this->needToResize()){
-            this->resize();
+        if (!usingStack()) {
+            delete[] Array;
         }
-        for(size_t i = this->pointer; i > index; i--){
-            this->Array[i] = this->Array[i - 1];
-        }
-        this->Array[index] = a;
-        ++this->pointer;
-    }
-
-    void add(const T &a) {
-        if(this->needToResize()){
-            this->resize();
-        }
-        this->Array[pointer] = a;
-        ++this->pointer;
-    }
-
-    T& getAt(size_t index) {
-        if (!this->checkRange(index)) {
-            Serial.println("VArrayList::error::");
-            Serial.println("VArrayList::error::");
-            Serial.println("VArrayList::error::");
-            Serial.println("VArrayList::error::");
-            Serial.printf("VArrayList::getAt: index out of bounds %i, size: %i", index, this->size());
-            Serial.println("VArrayList::error::");
-            Serial.println("VArrayList::error::");
-            Serial.println("VArrayList::error::");
-            Serial.println("VArrayList::error::");
-            return this->Array[0];
-        }
-        return this->Array[index];
-    }
-
-    void removeAt(size_t index) {
-        if (!this->checkRange(index)) return;
-
-        for(size_t i = index; i < this->pointer - 1; i++){
-            this->Array[i] = this->Array[i+1];
-        }
-
-        --this->pointer;
-    }
-
-    bool empty() {
-        return this->pointer == 0;
-    }
-
-    size_t indexOf(const T &item) {
-        for(size_t i = 0; i < this->pointer; i++){
-            if(this->Array[i] == item){
-                return i;
-            }
-        }
-        return 0;
-    }
-
-    bool has(const T &item) {
-        for(size_t i = 0; i < this->pointer; i++){
-            if(this->Array[i] == item){
-                return true;
-            }
-        }
-        return false;
-    }
-
-    size_t size() const {
-        return this->pointer;
     }
 
     VArrayList(const VArrayList&) = delete;
     VArrayList& operator=(const VArrayList&) = delete;
+
+    // move constructor
+    VArrayList(VArrayList&& other) noexcept {
+
+        if (other.usingStack()) {
+            Array = stackBuffer;
+            arrayLength = SBO_SIZE;
+
+            for (size_t i = 0; i < other.pointer; i++) {
+                stackBuffer[i] = other.stackBuffer[i];
+            }
+        } else {
+            Array = other.Array;
+            arrayLength = other.arrayLength;
+            other.Array = nullptr;
+        }
+
+        pointer = other.pointer;
+        other.pointer = 0;
+    }
+
+    // move assignment
+    VArrayList& operator=(VArrayList&& other) noexcept {
+
+        if (this != &other) {
+
+            if (!usingStack()) {
+                delete[] Array;
+            }
+
+            if (other.usingStack()) {
+
+                Array = stackBuffer;
+                arrayLength = SBO_SIZE;
+
+                for (size_t i = 0; i < other.pointer; i++) {
+                    stackBuffer[i] = other.stackBuffer[i];
+                }
+
+            } else {
+
+                Array = other.Array;
+                arrayLength = other.arrayLength;
+                other.Array = nullptr;
+
+            }
+
+            pointer = other.pointer;
+            other.pointer = 0;
+        }
+
+        return *this;
+    }
+
+    void add(const T& a) {
+        if (needToResize()) {
+            resize();
+        }
+
+        Array[pointer++] = a;
+    }
+
+    T& getAt(size_t index) {
+        if (!checkRange(index)) {
+            Serial.printf("VArrayList::getAt: index %i out of bounds (size %i)\n", index, pointer);
+            return Array[0];
+        }
+
+        return Array[index];
+    }
+
+    size_t size() const {
+        return pointer;
+    }
+
+    bool empty() {
+        return pointer == 0;
+    }
+
+    void removeAt(size_t index) {
+
+        if (!checkRange(index)) return;
+
+        for (size_t i = index; i < pointer - 1; i++) {
+            Array[i] = Array[i + 1];
+        }
+
+        pointer--;
+    }
+
+    T* begin() { return Array; }
+    T* end() { return Array + pointer; }
 
 };
 

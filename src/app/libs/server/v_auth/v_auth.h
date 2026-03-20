@@ -2,11 +2,10 @@
 #ifndef V_AUTH_H
 #define V_AUTH_H
 #include <Arduino.h>
-#include <base64.h>
 #include "mbedtls/sha256.h"
-#include "mbedtls/base64.h"
 #include "../v_strings/v_strings.h"
 #include "../v_request/v_request.h"
+#include "../v_base64/v_base64.h"
 
 
 class VAuth {
@@ -47,28 +46,6 @@ private:
         return String(buf);
     }
 
-    static String base64Decode(const String &input) {
-        size_t outputLen = 0;
-        // резервуємо буфер на максимально можливу довжину
-        size_t bufLen = (input.length() * 3) / 4 + 1;
-        uint8_t *buf = new uint8_t[bufLen];
-
-        int ret = mbedtls_base64_decode(buf, bufLen, &outputLen,
-                                        (const unsigned char *)input.c_str(), input.length());
-        if (ret != 0) {
-            delete[] buf;
-            return "";
-        }
-
-        String result;
-        for (size_t i = 0; i < outputLen; i++) {
-            result += (char)buf[i];
-        }
-
-        delete[] buf;
-        return result;
-    }
-
     static String createHash(const String& login, const String &password, const String &expiration) {
         const Creds creds = admin();
         return sha256(login + ":" + password + ":" + expiration + ":" + creds.secret);
@@ -106,7 +83,7 @@ public:
             return "";
         }
         const auto expiration = String(millis() + ttlMinutes * 60 * 1000);
-        return base64::encode( login + ":" + expiration + ":" + createHash(login, password, expiration));
+        return VBase64::encode( login + ":" + expiration + ":" + createHash(login, password, expiration));
     }
 
     static boolean checkToken(const String& token) {
@@ -114,7 +91,8 @@ public:
             Serial.println("no token");
             return false;
         }
-        const String decoded = base64Decode(token);
+        Serial.println("token=" + token);
+        const String decoded = VBase64::decode(token);
         if (!decoded.length()) {
             Serial.println("no decoded length");
             return false;
@@ -127,7 +105,6 @@ public:
         const String login = parts->getAt(0).toString();
         const String expiration = parts->getAt(1).toString();
         const String hash = parts->getAt(2).toString();
-        delete parts;
         if (hash!=createHash(login, admin().password, expiration)) {
             Serial.println("bad hash part");
             return false;
@@ -159,7 +136,6 @@ public:
             Serial.println("bad token check");
             result = false;
         }
-        delete parts;
         return result;
     }
 

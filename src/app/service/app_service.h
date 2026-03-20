@@ -38,6 +38,7 @@ public:
     String lastPingResponse = "";
     boolean isAccessPoint = false;
     long tickCnt = 0;
+    long errorCnt = 0;
 
     void setup() {
         display->begin(); // 72X40

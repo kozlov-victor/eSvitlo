@@ -2,6 +2,9 @@ const http = require('http');
 const fs = require('fs');
 const os = require('os');
 
+// http://192.168.3.135:8080
+// http://35.192.99.228:5000
+
 const PORT = 8080;
 const basePath = require('./consts').basePath;
 const formatDateTime = require('./consts').formatDateTime;

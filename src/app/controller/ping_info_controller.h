@@ -25,6 +25,7 @@ public:
         VTableMultitype result;
         result.putString("lastPingResponse",appService->lastPingResponse);
         result.putInt("tick",appService->tickCnt);
+        result.putInt("errorCnt",appService->errorCnt);
         result.putInt("time",millis());
         result.putBoolean("isAccessPoint", appService->isAccessPoint);
         result.putInt("signal",WiFi.RSSI());

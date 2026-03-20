@@ -71,6 +71,10 @@ export class MainWidget extends BaseTsxComponent {
         return result.success;
     }
 
+    private leadZero(val:number) {
+        return `${val<9?'0':''}${val}`;
+    }
+
     private formatDuration(ms: number) {
         if (!ms) return '';
         if (ms < 0) ms = 0;
@@ -82,10 +86,10 @@ export class MainWidget extends BaseTsxComponent {
         const seconds = sec % 60;
 
         const parts = [];
-        if (days) parts.push(`${days} д`);
-        if (hours) parts.push(`${hours} год`);
-        if (minutes) parts.push(`${minutes} хв`);
-        if (seconds || parts.length === 0) parts.push(`${seconds} сек`);
+        if (days) parts.push(`${this.leadZero(days)} д`);
+        if (hours) parts.push(`${this.leadZero(hours)} год`);
+        if (minutes) parts.push(`${this.leadZero(minutes)} хв`);
+        if (seconds || parts.length === 0) parts.push(`${this.leadZero(seconds)} сек`);
 
         return parts.join(" ");
     }
@@ -249,6 +253,7 @@ export class MainWidget extends BaseTsxComponent {
                             <>
                                 <div>Остання відповідь сервера: {this.tickInfo.lastPingResponse}</div>
                                 <div>Тік: {this.tickInfo.tick}</div>
+                                <div>Помилок: {this.tickInfo.errorCnt}</div>
                                 <div>Система працює: {this.formatDuration(this.tickInfo.time)}</div>
                             </>
                         }
