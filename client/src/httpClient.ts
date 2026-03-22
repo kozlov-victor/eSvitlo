@@ -41,6 +41,12 @@ interface SseEvent<T> {
     data:T;
 }
 
+export interface IHttpError {
+    status:number;
+    error:string;
+    response:any
+}
+
 class EventStream<T> {
 
     private lastIndex = 0;
@@ -160,14 +166,14 @@ export namespace HttpClient {
                     } catch (e) {
                         response = xhr.response;
                     }
-                    rejectFn({status:xhr.status,error:xhr.statusText,response});
+                    rejectFn({status:xhr.status,error:xhr.statusText,response} as IHttpError);
                 }
                 clearTimeout(abortTmr);
                 resolved = true;
             }
         };
         xhr.onerror = e=>{
-            rejectFn({status:xhr.status,error:xhr.statusText,response: e});
+            rejectFn({status:xhr.status,error:xhr.statusText,response: e} as IHttpError);
         };
         xhr.open(data.method,data.url,true);
         if (data.options?.headers) {
@@ -184,7 +190,7 @@ export namespace HttpClient {
                 if (resolved) return;
                 xhr.abort();
                 data.options.ontimeout?.();
-                rejectFn({status:xhr.status,error:xhr.statusText,response: 'timeout'});
+                rejectFn({status:xhr.status,error:xhr.statusText,response: 'timeout'} as IHttpError);
             },data.options.timeout);
         }
         return promise as Promise<T>;
