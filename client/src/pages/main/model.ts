@@ -11,6 +11,7 @@ export interface ISsid {
     ep:string;
     time:number;
     spot: string;
+    controlPin: number;
 }
 
 export interface ITickInfo {

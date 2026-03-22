@@ -8,4 +8,7 @@
         return __instance; \
     }
 
+#define Inject(field,ClassName) \
+    field = &ClassName::instance(); \
+
 #endif //V_SERVICE_H

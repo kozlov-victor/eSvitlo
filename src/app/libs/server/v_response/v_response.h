@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include "../v_static/v_static.h"
 #include "../v_hash_table/v_hash_table.h"
+#include "../v_request/v_request.h"
 
 struct VResponseCode {
     int code;
@@ -23,18 +24,18 @@ private:
     WiFiClient *client;
     VHashTable<String> *headers;
 
-    static bool writeAllFromProgmem(WiFiClient& c, const uint8_t* progmem, size_t len) {
+    void _writeBuffer(const uint8_t* mem, size_t len) {
         const size_t CHUNK = 1024;          // 512..1460 теж ок
         uint8_t tmp[CHUNK];
 
         size_t sent = 0;
-        while (sent < len && c.connected()) {
+        while (sent < len && this->client->connected()) {
             size_t n = len - sent;
             if (n > CHUNK) n = CHUNK;
 
-            memcpy_P(tmp, progmem + sent, n); // читаємо з PROGMEM у RAM
+            memcpy_P(tmp, mem + sent, n); // читаємо з PROGMEM у RAM
 
-            size_t w = c.write(tmp, n);       // скільки реально записалось
+            size_t w = this->client->write(tmp, n);       // скільки реально записалось
             if (w == 0) {                     // TCP буфер може бути зайнятий
                 delay(1);
                 yield();
@@ -46,9 +47,7 @@ private:
 
         if (sent != len) {
             Serial.printf("WARN: sent %u/%u bytes\n", (unsigned)sent, (unsigned)len);
-            return false;
         }
-        return true;
     }
 
     void writeHeader(int code, const String &status) {
@@ -71,7 +70,7 @@ private:
     void writeResponse(const int code, const String &status, const uint8_t* buffer = nullptr, const unsigned int len = 0) {
         writeHeader(code, status);
         if (buffer && len) {
-            writeAllFromProgmem(*this->client, buffer, len);
+            _writeBuffer(buffer, len);
         }
     }
 
@@ -110,6 +109,11 @@ public:
     void writeJson(const VTableMultitype &resp) {
         const String body = resp.stringify();
         writeText("application/json", body);
+    }
+    void writeBuffer(const uint8_t* buff, size_t size) {
+        setContentType("application/octet-stream");
+        setContentLength(size);
+        writeResponse(V_RESPONSE_OK.code,V_RESPONSE_OK.hint,buff,size);
     }
     void writeBuffer(const V_FILE &file) {
         setContentType(file.mime);

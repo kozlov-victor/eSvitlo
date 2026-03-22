@@ -18,7 +18,7 @@ private:
 public:
 
     explicit PingInfoController(VServer *server): VBaseController(server) {
-        appService = &AppService::instance();
+        Inject(appService,AppService)
     }
 
     void getTickInfo(VRequest* req, VResponse* resp) {
@@ -54,10 +54,15 @@ public:
         resp->writeJson(result);
     }
 
+    void getScreen(VRequest* req, VResponse* resp) {
+        resp->writeBuffer(appService->getBuffer(),appService->getBufferSize());
+    }
+
     void initRoutes() override {
         Route("/ping/getTickInfo","GET",PingInfoController,getTickInfo)
         Route("/ping/restart","POST",PingInfoController,restart)
         Route("/ping/health","POST",PingInfoController,health)
+        Route("/ping/getScreen","POST",PingInfoController,getScreen)
     }
 
     boolean authorise(VRequest *request) override {

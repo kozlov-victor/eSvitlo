@@ -7,6 +7,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "../server/v_response/v_response.h"
+#include "../v_http/v_http.h"
 
 struct OtaResult {
     bool success;
@@ -22,40 +23,8 @@ struct OtaProgressResult {
 
 class OtaAgent {
 private:
-
     void addHeader(HTTPClient &http) {
         http.addHeader("X-eSvitlo-app", "eSvitlo-ESP32-device");
-    }
-
-    OtaResult get(String url) {
-        HTTPClient http;
-
-        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-
-        if (url.startsWith("https://")) {
-            WiFiClientSecure client;
-            http.begin(client, url);
-        }
-        else {
-            WiFiClient client;
-            http.begin(client, url);
-        }
-
-        addHeader(http);
-        int httpCode = http.GET();
-        const String payload = http.getString();
-        Serial.println(httpCode);
-        Serial.println(payload);
-
-        if (httpCode != HTTP_CODE_OK) {
-            http.end();
-            return {false, "Api error: " + String(httpCode)};
-        }
-
-        http.end();
-        Serial.println(payload);
-        return {true, payload};
-
     }
 
 
@@ -70,9 +39,16 @@ private:
 public:
 
     OtaResult getLastVersion(const String &firmwareUrl) {
-        OtaResult result = get(firmwareUrl);
-        if (!result.success) return result;
-        const String version = VTableMultitype::parseJson(result.body).getString("version");
+        const VHttp vHttp = VHttp(firmwareUrl);
+        VHashTable<String> headers;
+        headers.put("X-eSvitlo-app", "eSvitlo-ESP32-device");
+        const VHttpResponse response = vHttp.get(&headers);
+
+        OtaResult result = {false, response.body};
+        if (response.code!=200) {
+            return result;
+        }
+        const String version = VTableMultitype::parseJson(response.body).getString("version");
         return {true, version};
     }
 

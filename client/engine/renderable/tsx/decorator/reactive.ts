@@ -34,7 +34,7 @@ export const Reactive = {
     Property: function() {
         return (originalProperty:any,context:ClassFieldDecoratorContext) => {
             context.addInitializer(function(){
-                let _val:any = undefined;
+                let _val:any = (this as any)[context.name];
                 Object.defineProperty(this, context.name,{
                     get: ()=>{
                         // Promise.resolve().then(()=>{
@@ -65,5 +65,5 @@ export const Reactive = {
             }
             return res;
         };
-    },
+    }
 }

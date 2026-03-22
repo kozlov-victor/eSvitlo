@@ -30,6 +30,7 @@ interface IRequestData<T> {
 
 export interface IRequestOptions<T> {
     headers?: Record<string, string>;
+    responseType?: XMLHttpRequestResponseType;
     timeout?: number;
     ontimeout?: ()=>void;
     onProgress?:(e:SseEvent<T>)=>void;
@@ -121,6 +122,7 @@ export namespace HttpClient {
             rejectFn = reject;
         });
         const evStream = new EventStream<T>(xhr);
+        if (data.options.responseType) xhr.responseType = data.options.responseType;
 
         xhr.onreadystatechange=()=> {
             if (xhr.readyState === 3) {
@@ -138,10 +140,16 @@ export namespace HttpClient {
                         resolveFn(last?.data);
                     }
                     else {
-                        let resp = xhr.responseText;
+                        let resp:string|ArrayBuffer;
                         const contentType = xhr.getResponseHeader(CONTENT_TYPE)||'';
-                        if (contentType.toLowerCase().indexOf('/json')>-1 && resp && resp.substr!==undefined) {
-                            resp = JSON.parse(resp);
+                        if (contentType.toLowerCase().indexOf('/json')>-1 && xhr.responseText.substr!==undefined) {
+                            resp = JSON.parse(xhr.responseText);
+                        }
+                        else if (contentType.toLowerCase().indexOf('/octet-stream')>-1) {
+                            resp = xhr.response;
+                        }
+                        else {
+                            resp = xhr.responseText;
                         }
                         resolveFn(resp as unknown as T);
                     }

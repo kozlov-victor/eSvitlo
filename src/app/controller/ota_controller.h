@@ -28,7 +28,7 @@ private:
 
 public:
     explicit OtaController(VServer *server):VBaseController(server), otaAgent(new OtaAgent()) {
-        appService = &AppService::instance();
+        Inject(appService,AppService)
     }
 
     ~OtaController() override {

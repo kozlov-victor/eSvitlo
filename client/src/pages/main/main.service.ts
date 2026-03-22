@@ -16,6 +16,7 @@ export const Wait = async (time:number)=>{
 export class MainService extends BaseService {
 
     public async getSsid() {
+        //return {} as ISsid;
         return await this.get<ISsid>('/ssid/get');
     }
 
@@ -31,6 +32,10 @@ export class MainService extends BaseService {
     public async health() {
         //await Wait(1000); return {alive:true};
         return await this.post<{alive:boolean}>('/ping/health');
+    }
+
+    public async getScreen() {
+        return await this.post<ArrayBuffer>('/ping/getScreen',undefined,{responseType:'arraybuffer'});
     }
 
     public async restart() {

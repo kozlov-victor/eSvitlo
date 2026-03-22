@@ -22,7 +22,7 @@ private:
     PingService* pingService = nullptr;
     VTimer *vTimer;
     VServer *vServer;
-    const int CONTROL_PIN = 1;
+    int controlPin = 1;
     boolean isAccessPoint = false;
 
     void printIp(const String &note, const IPAddress &ip) const {
@@ -78,7 +78,7 @@ private:
                     "\n" +
                     VStrings::padCenter(String(self->appService->errorCnt),10)
                 );
-                AppService::instance().lastPingResponse = result.message;
+                self->appService->lastPingResponse = result.message;
             }
             else {
                 self->appService->errorCnt++;
@@ -137,6 +137,14 @@ private:
         });
     }
 
+    void initControlPin() {
+        Preferences preferences;
+        preferences.begin("app", false);
+        controlPin = preferences.getInt("controlPin",1);
+        preferences.end();
+        pinMode(controlPin,INPUT_PULLUP);
+    }
+
 public:
     explicit RootService() {
         vTimer = new VTimer();
@@ -154,7 +162,8 @@ public:
         pingService = &PingService::instance();
         appService = &AppService::instance();
 
-        pinMode(CONTROL_PIN,INPUT_PULLUP);
+        initControlPin();
+
         appService->setup();
         delay(200);
 
@@ -169,7 +178,7 @@ public:
 
         initAuth();
 
-        isAccessPoint = digitalRead(CONTROL_PIN)==LOW;
+        isAccessPoint = digitalRead(controlPin)==LOW;
         appService->isAccessPoint = isAccessPoint;
         if (isAccessPoint) {
             const IPAddress addr = vServer->setupAsAccessPoint();

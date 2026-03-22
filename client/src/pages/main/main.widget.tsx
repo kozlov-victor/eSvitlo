@@ -11,6 +11,18 @@ import {MainService} from "./main.service";
 import {Router} from "../../router";
 import {DialogService} from "../../components/modal/dialog.service";
 import {AuthService} from "../../service/auth.service";
+import {ShowScreenDialog} from "./dialogs/show-screen.dialog";
+import {InputSetterService} from "../../utils/input.setter.service";
+
+const icon =
+    <svg width={24} height={24} fill="#000000" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+         viewBox="0 0 512 512" xml:space="preserve">
+        <path d="M512,405.854V31.219H0v374.634h187.317v37.463H143.61v37.463H368.39v-37.463h-43.707v-37.463H512z M287.219,443.317
+			h-62.439v-37.463h62.439V443.317z M37.463,368.39V68.683h437.073V368.39H37.463z"/>
+        <rect x="162.341" y="206.049" width="37.463" height="87.415"/>
+        <rect x="237.268" y="143.61" width="37.463" height="149.854"/>
+        <rect x="312.195" y="193.561" width="37.463" height="99.902"/>
+</svg>
 
 @DI.Injectable()
 export class MainWidget extends BaseTsxComponent {
@@ -20,6 +32,7 @@ export class MainWidget extends BaseTsxComponent {
     @DI.Inject(AuthService) private readonly authService: AuthService;
     @DI.Inject(Router) private readonly router: Router;
     @DI.Inject(DialogService) private readonly dialogService: DialogService;
+    @DI.Inject(InputSetterService) private readonly setter: InputSetterService;
 
     private result = '';
     private success: boolean;
@@ -28,6 +41,7 @@ export class MainWidget extends BaseTsxComponent {
     private tickInfo: ITickInfo;
     @Reactive.Property() private loading: boolean;
     private tid: any;
+    @Reactive.Property() public extended = false;
 
     @Reactive.Method()
     override async onMounted() {
@@ -60,8 +74,8 @@ export class MainWidget extends BaseTsxComponent {
         this.tickInfo = await this.mainService.getTickInfo();
     }
 
-    private validate() {
-        const result = this.validator.validate(this.model);
+    private validate(extended:boolean) {
+        const result = this.validator.validate(this.model,extended);
         if (!result.success) {
             this.showStatusBar(result.message,false);
         }
@@ -101,9 +115,9 @@ export class MainWidget extends BaseTsxComponent {
     }
 
     @Reactive.Method()
-    private async save(e:Event) {
+    private async save() {
         const model = this.model;
-        if (!this.validate()) return;
+        if (!this.validate(this.extended)) return;
         try {
             this.pending = true;
             const resp = await this.mainService.save(model);
@@ -149,6 +163,11 @@ export class MainWidget extends BaseTsxComponent {
         this.router.navigate('personal-account');
     }
 
+    @Reactive.Method()
+    private async openShowScreenDialog() {
+        await this.dialogService.openDialog(ShowScreenDialog);
+    }
+
     render(): JSX.Element {
 
         return (
@@ -156,7 +175,7 @@ export class MainWidget extends BaseTsxComponent {
                 {this.loading && <>Завантаження...</>}
                 {!this.loading &&
                     <>
-                        Панель керування приладом eSvitlo
+                        Панель керування приладом eSvitlo <span style={{cursor:'pointer'}} onclick={this.openShowScreenDialog}>{icon}</span>
                         <div style={{width:'90%',margin:'0 auto',}}>
                             <div>
                                 {
@@ -177,10 +196,7 @@ export class MainWidget extends BaseTsxComponent {
                                         WIFI мережа
                                     </td>
                                     <td>
-                                        <input
-                                            value={this.model.ssid}
-                                            onchange={e => this.setValue(e,'ssid',v => v)}
-                                        />
+                                        <input {...this.setter.bind(this.model,'ssid',String)}/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -190,20 +206,15 @@ export class MainWidget extends BaseTsxComponent {
                                     <td>
                                         <input
                                             type='password'
-                                            value={this.model.password}
-                                            onchange={e => this.setValue(e,'password',v => v)}
-                                        />
-                                    </td>
+                                            {...this.setter.bind(this.model,'password',String)}/>
+                                </td>
                                 </tr>
                                 <tr>
                                     <td>
                                         ID приладу
                                     </td>
                                     <td>
-                                        <input
-                                            value={this.model.id}
-                                            onchange={e => this.setValue(e,'id',v => v)}
-                                        />
+                                        <input {...this.setter.bind(this.model,'id',String)}/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -211,10 +222,7 @@ export class MainWidget extends BaseTsxComponent {
                                         Лінія
                                     </td>
                                     <td>
-                                        <input
-                                            value={this.model.spot}
-                                            onchange={e => this.setValue(e,'spot',v => v)}
-                                        />
+                                        <input {...this.setter.bind(this.model,'spot',String)}/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -222,10 +230,7 @@ export class MainWidget extends BaseTsxComponent {
                                         URL сервера
                                     </td>
                                     <td>
-                                        <input
-                                            value={this.model.ep}
-                                            onchange={e => this.setValue(e,'ep',v => v)}
-                                        />
+                                        <input {...this.setter.bind(this.model,'ep',String)}/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -234,12 +239,32 @@ export class MainWidget extends BaseTsxComponent {
                                     </td>
                                     <td>
                                         <input
-                                            value={''+this.model.time}
                                             type={'tel'}
-                                            onchange={e => this.setValue(e,'time',Number)}
-                                        />
+                                            {...this.setter.bind(this.model,'time',Number)}/>
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td>
+                                        Розширені налаштування
+                                    </td>
+                                    <td>
+                                        <input
+                                            type={'checkbox'}
+                                            {...this.setter.bind(this,'extended',Boolean)}/>
+                                    </td>
+                                </tr>
+                                {this.extended &&
+                                    <tr>
+                                        <td>
+                                            Control PIN
+                                        </td>
+                                        <td>
+                                            <input
+                                                type={'tel'}
+                                                {...this.setter.bind(this.model,'controlPin',Number)}/>
+                                        </td>
+                                    </tr>
+                                }
                                 </tbody>
                             </table>
                         </div>

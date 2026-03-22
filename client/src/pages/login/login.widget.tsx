@@ -9,6 +9,7 @@ import {DialogService} from "../../components/modal/dialog.service";
 import {Router} from "../../router";
 import {HttpClient} from "../../httpClient";
 import {ResetAdminDialog} from "./dialog/reset-admin.dialog";
+import {InputSetterService} from "../../utils/input.setter.service";
 
 @DI.Injectable()
 export class LoginWidget extends BaseTsxComponent {
@@ -16,6 +17,8 @@ export class LoginWidget extends BaseTsxComponent {
     @DI.Inject(AuthService) private readonly authService: AuthService;
     @DI.Inject(DialogService) private readonly dialogService: DialogService;
     @DI.Inject(Router) private readonly router: Router;
+    @DI.Inject(InputSetterService) private readonly setter: InputSetterService;
+
     private model: ILogin = {login: '',password: ''};
 
     @Reactive.Method()
@@ -72,22 +75,20 @@ export class LoginWidget extends BaseTsxComponent {
                             <td>Логін</td>
                             <td>
                                 <input
-                                    value={''+this.model.login}
                                     name={'login'}
                                     autocomplete={'username'}
-                                    onchange={e => this.setValue(e,'login',v=>v)}
-                                />
-                            </td>
-                        </tr>
+                                    {...this.setter.bind(this.model,'login',String)}
+                            />
+                        </td>
+                    </tr>
                         <tr>
                             <td>Пароль</td>
                             <td>
                                 <input
-                                    value={''+this.model.password}
                                     name={'password'}
                                     type={'password'}
                                     autocomplete='current-password'
-                                    onchange={e => this.setValue(e,'password',v=>v)}
+                                    {...this.setter.bind(this.model,'login',String)}
                                 />
                             </td>
                         </tr>

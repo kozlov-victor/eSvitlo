@@ -4,7 +4,7 @@ import {ISsid} from "./model";
 @DI.Injectable()
 export class SsidValidator {
 
-    public validate(ssid:ISsid):{success:boolean, message:string} {
+    public validate(ssid:ISsid,extended:boolean):{success:boolean, message:string} {
         if (!ssid.ssid) {
             return {success: false, message: 'WIFI мережа не задана'};
         }
@@ -31,6 +31,14 @@ export class SsidValidator {
         }
         if (ssid.time<30 || ssid.time>60*5) {
             return {success: false, message: 'Невірний діапазон часу'};
+        }
+        if (extended) {
+            if (!ssid.controlPin) {
+                return {success: false, message: 'CONTROL PIN не задано'};
+            }
+            if (isNaN(+ssid.controlPin)) {
+                return {success: false, message: 'Невірний CONTROL PIN'};
+            }
         }
         return {success: true, message: ''};
     }

@@ -25,6 +25,7 @@ public:
         result.putString("spot",preferences.getString("spot",""));
         result.putString("ep",preferences.getString("ep","http://35.192.99.228:5000"));
         result.putInt("time",preferences.getLong("time",60L));
+        result.putInt("controlPin",preferences.getInt("controlPin",1));
         preferences.end();
         resp->writeJson(result);
     }
@@ -38,6 +39,7 @@ public:
         preferences.putString("ep",req->params->getString("ep").c_str());
         preferences.putString("spot",req->params->getString("spot").c_str());
         preferences.putLong("time",req->params->getInt("time"));
+        preferences.putInt("controlPin",req->params->getInt("controlPin"));
         preferences.end();
 
         VTableMultitype result;

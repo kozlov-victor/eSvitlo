@@ -41,7 +41,7 @@ public:
     long errorCnt = 0;
 
     void setup() {
-        display->begin(); // 72X40
+        display->begin(); // 62X40
         display->setOffset(36,25);
     }
 
@@ -55,6 +55,14 @@ public:
         display->clear();
         display->drawBitmap(0,0,63,32,logo);
         display->update();
+    }
+
+    const uint8_t *getBuffer() const {
+        return display->getRawBuffer();
+    }
+
+    size_t getBufferSize() const {
+        return display->getBufferSize();
     }
 
 };
