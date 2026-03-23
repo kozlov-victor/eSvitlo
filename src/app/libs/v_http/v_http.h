@@ -51,6 +51,15 @@ private:
     }
 
     VHttpResponse call(const String &method, VHashTable<String> *headers = nullptr, String requestBody = "") const {
+        //
+        // WL_NO_SHIELD        = 255,   // for compatibility with WiFi Shield library
+        // WL_IDLE_STATUS      = 0,
+        // WL_NO_SSID_AVAIL    = 1,
+        // WL_SCAN_COMPLETED   = 2,
+        // WL_CONNECTED        = 3,
+        // WL_CONNECT_FAILED   = 4,
+        // WL_CONNECTION_LOST  = 5,
+        // WL_DISCONNECTED     = 6
 
         if (WiFi.status() != WL_CONNECTED) {
             return {-1, "no wifi"};
@@ -68,6 +77,7 @@ private:
 
         if (!client.connect(parsedUrl.host.c_str(), parsedUrl.port)) {
             Serial.println("TCP connect failed");
+            Serial.println("WIFI status is " + String(WiFi.status()));
             resp.body = "TCP failed";
             client.stop();
             return resp;

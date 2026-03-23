@@ -88,7 +88,7 @@ export class LoginWidget extends BaseTsxComponent {
                                     name={'password'}
                                     type={'password'}
                                     autocomplete='current-password'
-                                    {...this.setter.bind(this.model,'login',String)}
+                                    {...this.setter.bind(this.model,'password',String)}
                                 />
                             </td>
                         </tr>
