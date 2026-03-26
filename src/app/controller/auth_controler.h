@@ -26,10 +26,6 @@ public:
         }
         JsonObjectBuilder result;
         result.setString("token",token);
-        auto* arr = result.setArray("arr");
-        result.putBool(true, arr);
-        result.putBool(false, arr);
-        result.putNull(arr);
         resp->writeJson(result.getRoot());
     }
 
