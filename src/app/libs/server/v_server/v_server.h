@@ -20,16 +20,19 @@ private:
     bool reconnecting = false;
     const int MAX_REQ_PER_CONN = 8;
 
-    void checkStatus() {
 
+    static void heartBeat() {
         static uint32_t hb = 0;
         if (millis() - hb > 5000) {
             hb = millis();
             Serial.printf("HB wifi=%d heap=%u min=%u\n", WiFi.status(), ESP.getFreeHeap(), ESP.getMinFreeHeap());
         }
+    }
 
+    void checkStatus() {
+        static uint32_t lastCheck = millis();
         if (wifiClient) {
-            if (millis() - lastCheck > 5000) {
+            if (!reconnecting && millis() - lastCheck > 5000) {
                 lastCheck = millis();
                 if (WiFi.status() != WL_CONNECTED) {
                     Serial.println("WiFi lost, trying reconnect...");
@@ -43,6 +46,49 @@ private:
                 reconnecting = false;
                 Serial.println("WiFi reconnected");
                 if (onReconnectedCb) this->onReconnectedCb(this->context);
+            }
+        }
+    }
+
+    void checkHealth() {
+        if (!wifiClient) return;
+
+        if (ESP.getMaxAllocHeap() < ESP.getFreeHeap() / 5) {
+            Serial.println("heap disaster!!!");
+            if (onConnectionLostCb) onConnectionLostCb(context);
+            delay(500);
+            ESP.restart();
+        }
+
+        static uint32_t lastCheck = millis();
+        if (!reconnecting && millis() - lastCheck > 60000) {
+            Serial.println("checkHealth");
+            lastCheck = millis();
+            bool wifiOk = true;
+
+            WiFiClient c;
+            if (!c.connect(WiFi.gatewayIP(), 80)) {
+                wifiOk = false;
+            }
+            c.stop();
+
+            if (!wifiOk) {
+                Serial.println("Network seems broken: restarting WiFi");
+                reconnecting = true;
+                if (onConnectionLostCb) onConnectionLostCb(context);
+                delay(200);
+                yield();
+                WiFi.disconnect(true);
+                delay(200);
+                yield();
+                WiFi.mode(WIFI_OFF);
+                delay(300);
+                yield();
+                WiFi.mode(WIFI_STA);
+                WiFi.begin(login, password);
+            }
+            else {
+                Serial.println("wifi Ok");
             }
         }
     }
@@ -250,7 +296,6 @@ private:
     String login;
     String password;
     boolean wifiClient = false;
-    unsigned long lastCheck = 0;
     boolean started = false;
 
 public:
@@ -332,7 +377,9 @@ public:
 
     void tick() {
         if (!started) return;
+        heartBeat();
         checkStatus();
+        checkHealth();
         listenToNextClient();
         registry->tick();
     }

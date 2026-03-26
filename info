@@ -1,4 +1,5 @@
 partition - minimal SPIFFS
+esp cdc on boot -enabled
 
 оновлення версії через OTA
 1. Змінити версію в firmware_version

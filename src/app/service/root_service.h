@@ -66,7 +66,7 @@ private:
         }
         pingService->setUrl(url);
         vTimer->onDone(this,[](void* ctx) {
-
+            static int failCount = 0;
             const auto* self = static_cast<RootService*>(ctx);
             const PingResponse result = self->pingService->call();
             self->appService->tickCnt++;
@@ -189,6 +189,7 @@ public:
         }
         initControllers();
         setServerLifeCycleListeners();
+
     }
 
     void loop() {
