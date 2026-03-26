@@ -13,14 +13,24 @@ public:
     explicit AuthController(VServer* server) : VBaseController(server) {}
 
     void createToken(VRequest* req, VResponse* resp) {
-        const String token = VAuth::createToken(req->params->getString("login"),req->params->getString("password"),60*2);
+        const String token =
+            VAuth::createToken(
+            req->body->get("login")->asString(),
+            req->body->get("password")->asString(),
+            60*2
+            );
+        Serial.println("token created");
         if (token.isEmpty()) {
             resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
             return;
         }
-        VTableMultitype result;
-        result.putString("token",token);
-        resp->writeJson(result);
+        JsonObjectBuilder result;
+        result.setString("token",token);
+        auto* arr = result.setArray("arr");
+        result.putBool(true, arr);
+        result.putBool(false, arr);
+        result.putNull(arr);
+        resp->writeJson(result.getRoot());
     }
 
     void initRoutes() override {

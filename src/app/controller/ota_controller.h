@@ -7,10 +7,11 @@
 #include "../libs/server/v_request/v_request.h"
 #include "../libs/server/v_response/v_response.h"
 #include "../libs/server/v_server/v_server.h"
-#include "../libs/server/v_table_multi_type/v_table_multi_type.h"
 #include "../libs/ota/ota_agent.h"
 #include "../firmware_version.h"
 #include "../service/app_service.h"
+#include "../libs/server/v_json_lite/v_json_lite.h"
+#include "../libs/server/v_auth/v_auth.h"
 
 class OtaController  : public VBaseController {
 
@@ -43,31 +44,31 @@ public:
     }
 
     void version(VRequest* req, VResponse* resp) {
-        VTableMultitype result;
-        result.putString("version",FirmwareVersion::getFirmwareVersion());
-        resp->writeJson(result);
+        JsonObjectBuilder result;
+        result.setString("version",FirmwareVersion::getFirmwareVersion());
+        resp->writeJson(result.getRoot());
     }
 
     void update(VRequest* req, VResponse* resp) {
         const String ep = getEp();
-        VTableMultitype result;
+        JsonObjectBuilder result;
         if (ep.isEmpty()) {
-            result.putBoolean("success",false);
-            result.putString("error","bad endpoint");
+            result.setBool("success",false);
+            result.setString("error","bad endpoint");
         }
         else {
             const String url = ep + "/update";
             const OtaResult otaResult = otaAgent->getLastVersion(url);
 
-            result.putBoolean("success",otaResult.success);
+            result.setBool("success",otaResult.success);
             if (otaResult.success) {
-                result.putString("version",otaResult.body);
+                result.setString("version",otaResult.body);
             }
             else {
-                result.putString("error",otaResult.body);
+                result.setString("error",otaResult.body);
             }
         }
-        resp->writeJson(result);
+        resp->writeJson(result.getRoot());
     }
 
     void initRoutes() override {

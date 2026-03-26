@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
-#include "../libs/server/v_table_multi_type/v_table_multi_type.h"
 #include "../libs/server/v_service/v_service.h"
 #include "../libs/v_http/v_http.h"
+#include "../libs/server/v_json_lite/v_json_lite.h"
 
 struct PingResponse {
     int code;
@@ -47,13 +47,13 @@ public:
             return pingResponse;
         }
 
-        const VTableMultitype pingCallResponse = VTableMultitype::parseJson(response.body);
-        const String status = pingCallResponse.getString("status");
+        JsonValue* pingCallResponse = JsonParser::parse(response.body);
+        const String status = pingCallResponse->get("status")->asString();
         if (status=="OK") {
-            pingResponse.message = pingCallResponse.getString("time");
+            pingResponse.message = pingCallResponse->get("time")->asString();
         }
         else {
-            pingResponse.message = pingCallResponse.getString("error");
+            pingResponse.message = pingCallResponse->get("error")->asString();
             if (pingResponse.message.isEmpty()) {
                 pingResponse.message = response.body;
             }

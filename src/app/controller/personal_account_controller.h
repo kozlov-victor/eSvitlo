@@ -7,19 +7,21 @@
 #include "../libs/server/v_request/v_request.h"
 #include "../libs/server/v_response/v_response.h"
 #include "../libs/server/v_auth/v_auth.h"
+#include "../service/app_service.h"
 
 class PersonalAccountController  : public VBaseController {
 private:
-
+    AppService* appService;
 public:
     explicit PersonalAccountController(VServer *server) : VBaseController(server) {
+        Inject(appService,AppService)
     }
 
     void creds(VRequest* req, VResponse* resp) {
         Preferences preferences;
         preferences.begin("app", false);
-        String login = req->params->getString("login");
-        String password = req->params->getString("password");
+        String login = req->body->get("login")->asString();
+        String password = req->body->get("password")->asString();
         if (login.isEmpty() || password.isEmpty()) {
             resp->writeStatus(V_RESPONSE_BAD_REQUEST);
             return;
@@ -32,7 +34,7 @@ public:
     }
 
     void reset(VRequest* req, VResponse* resp) {
-        if (req->params->getString("password") != "_^tavyzaibalyzabuvatyparoli$!") {
+        if (req->body->get("password")->asString() != "_^tavyzaibalyzabuvatyparoli$!") {
             resp->writeStatus(V_RESPONSE_UNAUTHORIZED);
             return;
         }
@@ -46,6 +48,6 @@ public:
     }
 
     boolean authorise(VRequest *) override {
-        return AppService::instance().isAccessPoint;
+        return appService->isAccessPoint;
     }
 };

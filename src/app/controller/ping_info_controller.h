@@ -5,11 +5,10 @@
 #include "../libs/server/v_server/v_server.h"
 #include "../libs/server/v_request/v_request.h"
 #include "../libs/server/v_response/v_response.h"
-#include "../libs/server/v_table_multi_type/v_table_multi_type.h"
+#include "../libs/server/v_json_lite/v_json_lite.h"
 #include "../libs/server/v_auth/v_auth.h"
 #include "../libs/v_timer/v_timer.h"
 #include "../service/app_service.h"
-
 
 class PingInfoController : public VBaseController {
 private:
@@ -22,20 +21,20 @@ public:
     }
 
     void getTickInfo(VRequest* req, VResponse* resp) {
-        VTableMultitype result;
-        result.putString("lastPingResponse",appService->lastPingResponse);
-        result.putInt("tick",appService->tickCnt);
-        result.putInt("errorCnt",appService->errorCnt);
-        result.putInt("time",millis());
-        result.putBoolean("isAccessPoint", appService->isAccessPoint);
-        result.putInt("signal",WiFi.RSSI());
-        resp->writeJson(result);
+        JsonObjectBuilder result;
+        result.setString("lastPingResponse",appService->lastPingResponse);
+        result.setInt("tick",appService->tickCnt);
+        result.setInt("errorCnt",appService->errorCnt);
+        result.setInt("time",millis());
+        result.setBool("isAccessPoint", appService->isAccessPoint);
+        result.setInt("signal",WiFi.RSSI());
+        resp->writeJson(result.getRoot());
     }
 
     void restart(VRequest* req, VResponse* resp) {
         appService->log("restart...");
-        VTableMultitype result;
-        result.putBoolean("success",true);
+        JsonObjectBuilder result;
+        result.setBool("success",true);
         timer = new VTimer();
         timer->once = true;
         timer->onDone(this,[](void* ctx) {
@@ -45,13 +44,13 @@ public:
             ESP.restart();
         });
         timer->start(500);
-        resp->writeJson(result);
+        resp->writeJson(result.getRoot());
     }
 
     void health(VRequest* req, VResponse* resp) {
-        VTableMultitype result;
-        result.putBoolean("alive",true);
-        resp->writeJson(result);
+        JsonObjectBuilder result;
+        result.setBool("alive",true);
+        resp->writeJson(result.getRoot());
     }
 
     void getScreen(VRequest* req, VResponse* resp) {

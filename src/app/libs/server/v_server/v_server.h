@@ -8,7 +8,7 @@
 #include "../v_route_registry/v_route_registry.h"
 #include "../v_request/v_request.h"
 #include "../v_response/v_response.h"
-#include "../v_table_multi_type/v_table_multi_type.h"
+#include "../v_json_lite/v_json_lite.h"
 
 class VServer {
 private:
@@ -111,12 +111,14 @@ private:
 
             String method, url;
             VHashTable<String> requestHeaders;
-            VTableMultitype params;
+            VHashTable<String> params;
+            JsonValue* jsonValue = JsonValue::JSON_NULL_VALUE();
 
-            readRequest(client, &method, &url, &requestHeaders, &params);
+            readRequest(client, &method, &url, &requestHeaders, &params, &jsonValue);
             if (method.length() == 0) break;
 
             VRequest req(method, &requestHeaders, &params);
+            req.body = jsonValue;
             VHashTable<String> responseHeaders;
             VResponse resp(&client, &responseHeaders);
 
@@ -147,7 +149,7 @@ private:
     }
 
     static void readRequest(WiFiClient &client, String *method, String *url, VHashTable<String> *headers,
-                            VTableMultitype *params) {
+                            VHashTable<String> *params, JsonValue **jsonBody) {
         String currentLine = "";
         boolean isFirstLine = true;
         boolean isBody = false;
@@ -232,7 +234,7 @@ private:
         }
         //Serial.println("bodyRaw = "  + bodyRaw);
         if (headers->has("content-type") && headers->get("content-type").indexOf("/json") >= 0) {
-            parseBody(bodyRaw, params);
+            *jsonBody = JsonParser::parse(bodyRaw);
         }
     }
 
@@ -251,12 +253,7 @@ private:
         headers->put(key, val);
     }
 
-    static void parseBody(const String &bodyRaw, VTableMultitype *params) {
-        const VTableMultitype body = VTableMultitype::parseJson(bodyRaw);
-        params->putAll(body);
-    }
-
-    static void parseQueryString(const String &qs, VTableMultitype *params) {
+    static void parseQueryString(const String &qs, VHashTable<String> *params) {
         int i = 0;
         while (i < (int) qs.length()) {
             int amp = qs.indexOf('&', i);
@@ -267,15 +264,15 @@ private:
             if (eq >= 0) {
                 String k = pair.substring(0, eq);
                 String v = pair.substring(eq + 1);
-                params->putString(k, v);
+                params->put(k, v);
             } else if (pair.length() > 0) {
-                params->putString(pair, "");
+                params->put(pair, "");
             }
             i = amp + 1;
         }
     }
 
-    static void parseFirstLine(const String &line, String *method, String *url, VTableMultitype *params) {
+    static void parseFirstLine(const String &line, String *method, String *url, VHashTable<String> *params) {
         // line: "GET /path?x=1 HTTP/1.1"
         const int sp1 = line.indexOf(' ');
         if (sp1 < 0) return;

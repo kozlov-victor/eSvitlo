@@ -3,15 +3,16 @@
 
 #include <Arduino.h>
 #include "../v_hash_table/v_hash_table.h"
-#include "../v_table_multi_type/v_table_multi_type.h"
+#include "../v_json_lite/v_json_lite.h"
 
 class VRequest {
 public:
     String method;
     VHashTable<String> *headers;
-    VTableMultitype *params;
+    VHashTable<String> *params;
+    JsonValue *body = nullptr;
 
-    VRequest(const String &method, VHashTable<String> *headers, VTableMultitype *params) {
+    VRequest(const String &method, VHashTable<String> *headers, VHashTable<String> *params) {
         this->method = method;
         this->headers = headers;
         this->params = params;

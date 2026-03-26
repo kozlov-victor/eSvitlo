@@ -146,19 +146,42 @@ public:
 // JSON VALUE
 // =====================================
 enum JsonType { J_NULL, J_BOOL, J_INT, J_FLOAT, J_STRING, J_OBJECT, J_ARRAY };
+class JsonParser;
+class JsonPool;
+class JsonObjectBuilder;
 
-struct JsonValue {
+class  JsonValue {
+private:
     JsonType type;
-
     bool boolVal;
     double floatVal;
     int intVal;
     String strVal;
     VHashTable<JsonValue*> object;
     VArrayList<JsonValue*> array;
+    friend JsonParser;
+    friend JsonPool;
+    friend JsonObjectBuilder;
+
+    void clear() {
+        boolVal = false;
+        floatVal = 0;
+        intVal = 0;
+        strVal = "";
+        object.clear();
+        array.clear();
+    }
+
+public:
 
     JsonValue() : type(J_NULL), boolVal(false), floatVal(0), intVal(0) {
 
+    }
+
+    static JsonValue* JSON_NULL_VALUE() {
+        static JsonValue jsonValue;
+        jsonValue.type = J_NULL;
+        return &jsonValue;
     }
 
     JsonValue* get(const String& key) {
@@ -227,8 +250,9 @@ struct JsonValue {
                 }
                 return s + "]";
             }
+            default:
+                return "";
         }
-        return "";
     }
 };
 
@@ -240,22 +264,26 @@ private:
     JsonValue* pool;
     int capacity;
     int used = 0;
-    JsonValue fallbackJsonValue = {};
+
 public:
     JsonPool(JsonValue* buffer, const int cap)
         : pool(buffer), capacity(cap) {
-        fallbackJsonValue.type = J_NULL;
     }
 
     JsonValue* alloc() {
         if (used >= capacity) {
             Serial.println("ERROR: JsonPool is empty!!");
-            return &fallbackJsonValue;
+            return JsonValue::JSON_NULL_VALUE();
         }
         return &pool[used++];
     }
 
-    void reset() { used = 0; }
+    void reset() {
+        for (auto i=0; i<capacity; i++) {
+            pool[i].clear();
+        }
+        used = 0;
+    }
 
     int free() const { return capacity - used; }
 };
@@ -268,7 +296,6 @@ private:
     VArrayList<Token> *tokens;
     int pos = 0;
     JsonPool* pool;
-    JsonValue fallbackJsonValue = {};
 
     Token& lookNext() const { return tokens->getAt(pos); }
     Token& getNext(){ return tokens->getAt(pos++); }
@@ -331,7 +358,7 @@ private:
         if (t.type == T_LBRACE) return parseObject();
         if (t.type == T_LBRACKET) return parseArray();
 
-        return &fallbackJsonValue;
+        return JsonValue::JSON_NULL_VALUE();
     }
 
     JsonValue* parseObject() {
@@ -342,18 +369,18 @@ private:
         getNext(); // {
 
         while (!eat(T_RBRACE)) {
-            if (lookNext().type != T_STRING) return &fallbackJsonValue;
+            if (lookNext().type != T_STRING) return JsonValue::JSON_NULL_VALUE();
 
             String key = getNext().value;
 
-            if (!eat(T_COLON)) return &fallbackJsonValue;
+            if (!eat(T_COLON)) return JsonValue::JSON_NULL_VALUE();
 
             JsonValue* val = parseValue();
             obj->object.put(key, val);
 
             if (!eat(T_COMMA)) {
                 if (lookNext().type != T_RBRACE) {
-                    return &fallbackJsonValue;
+                    return JsonValue::JSON_NULL_VALUE();
                 }
             }
         }
@@ -363,7 +390,7 @@ private:
 
     JsonValue* parseArray() {
         JsonValue* arr = pool->alloc();
-        if (!arr) return &fallbackJsonValue;
+        if (!arr) return JsonValue::JSON_NULL_VALUE();
 
         arr->type = J_ARRAY;
 
@@ -371,20 +398,20 @@ private:
 
         while (lookNext().type != T_RBRACKET) {
             JsonValue* val = parseValue();
-            if (!val) return &fallbackJsonValue;
+            if (!val) return JsonValue::JSON_NULL_VALUE();
 
             arr->array.add(val);
 
             if (!eat(T_COMMA)) break;
         }
 
-        if (!eat(T_RBRACKET)) return &fallbackJsonValue;
+        if (!eat(T_RBRACKET)) return JsonValue::JSON_NULL_VALUE();
 
         return arr;
     }
 
     explicit JsonParser(VArrayList<Token>* tokens, JsonPool* pool = &defaultPool) : tokens(tokens), pool(pool) {
-        fallbackJsonValue.type = J_NULL;
+
     }
 
 public:
@@ -402,7 +429,7 @@ public:
         return p.parseValue();
     }
 
-    static JsonValue* parse(const String& str, JsonPool* pool = &defaultPool) {
+    static JsonValue* parse(const String &str, JsonPool *pool = &defaultPool) {
         return parse(str.c_str(), pool);
     }
 
@@ -415,14 +442,12 @@ class JsonObjectBuilder {
 private:
     JsonValue root;
     JsonPool* pool;
-    JsonValue fallbackJsonValue;
 public:
     explicit JsonObjectBuilder(const JsonType type = J_OBJECT, JsonPool* pool = &defaultPool):pool(pool) {
         root.type = type;
         if (pool==&defaultPool) {
             pool->reset();
         }
-        fallbackJsonValue.type = J_NULL;
     }
 
     void setInt(const String& key,const int v, JsonValue* target = nullptr){
@@ -515,7 +540,7 @@ public:
 
     JsonValue* putArray(JsonValue* target = nullptr){
         if (!target) target = &root;
-        if (target->type!=J_ARRAY) return &fallbackJsonValue;
+        if (target->type!=J_ARRAY) return JsonValue::JSON_NULL_VALUE();
         JsonValue* j = pool->alloc();
         j->type = J_ARRAY;
         target->array.add(j);
@@ -524,7 +549,7 @@ public:
 
     JsonValue* putObject(JsonValue* target = nullptr){
         if (!target) target = &root;
-        if (target->type!=J_ARRAY) return &fallbackJsonValue;
+        if (target->type!=J_ARRAY) return JsonValue::JSON_NULL_VALUE();
         JsonValue* j = pool->alloc();
         j->type = J_OBJECT;
         target->array.add(j);
@@ -533,7 +558,7 @@ public:
 
     JsonValue* setObject(const String& key, JsonValue* target = nullptr){
         if (!target) target = &root;
-        if (target->type!=J_OBJECT) return &fallbackJsonValue;
+        if (target->type!=J_OBJECT) return JsonValue::JSON_NULL_VALUE();
         JsonValue* j = pool->alloc();
         j->type = J_OBJECT;
         target->object.put(key,j);
@@ -542,11 +567,15 @@ public:
 
     JsonValue* setArray(const String& key, JsonValue* target = nullptr){
         if (!target) target = &root;
-        if (target->type!=J_OBJECT) return &fallbackJsonValue;
+        if (target->type!=J_OBJECT) return JsonValue::JSON_NULL_VALUE();
         JsonValue* j = pool->alloc();
         j->type = J_ARRAY;
         target->object.put(key,j);
         return j;
+    }
+
+    JsonValue& getRoot() {
+        return root;
     }
 
     String toString() { return root.toString(); }

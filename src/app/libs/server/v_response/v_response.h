@@ -6,6 +6,7 @@
 #include "../v_static/v_static.h"
 #include "../v_hash_table/v_hash_table.h"
 #include "../v_request/v_request.h"
+#include "../v_json_lite/v_json_lite.h"
 
 struct VResponseCode {
     int code;
@@ -106,8 +107,8 @@ public:
         setContentLength(body.length());
         writeResponse(V_RESPONSE_OK.code,V_RESPONSE_OK.hint,body);
     }
-    void writeJson(const VTableMultitype &resp) {
-        const String body = resp.stringify();
+    void writeJson(JsonValue &resp) {
+        const String body = resp.toString();
         writeText("application/json", body);
     }
     void writeBuffer(const uint8_t* buff, size_t size) {

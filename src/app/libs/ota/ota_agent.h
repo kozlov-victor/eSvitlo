@@ -28,12 +28,12 @@ private:
     }
 
 
-    static void writeProgress(const OtaProgressResult &result, VTableMultitype &body, VResponse *resp) {
-        body.putBoolean("success", result.success);
-        body.putBoolean("progress", result.progress);
-        body.putBoolean("completed", result.completed);
-        body.putString("body", result.body);
-        resp->sendSSE(body.stringify());
+    static void writeProgress(const OtaProgressResult &result, JsonObjectBuilder &body, VResponse *resp) {
+        body.setBool("success", result.success);
+        body.setBool("progress", result.progress);
+        body.setBool("completed", result.completed);
+        body.setString("body", result.body);
+        resp->sendSSE(body.getRoot().toString());
     }
 
 public:
@@ -48,7 +48,8 @@ public:
         if (response.code!=200) {
             return result;
         }
-        const String version = VTableMultitype::parseJson(response.body).getString("version");
+        const String version =
+            JsonParser::parse(response.body)->get("version")->get("version")->asString();
         return {true, version};
     }
 
@@ -71,7 +72,7 @@ public:
         addHeader(http);
         int httpCode = http.GET();
 
-        VTableMultitype respMessage;
+        JsonObjectBuilder respMessage;
         OtaProgressResult progressResult;
 
         if (httpCode == HTTP_CODE_OK) {

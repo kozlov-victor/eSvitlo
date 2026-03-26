@@ -123,7 +123,6 @@ public:
         if (needToResize()) {
             resize();
         }
-
         Array[pointer++] = a;
     }
 
@@ -153,6 +152,10 @@ public:
         }
 
         pointer--;
+    }
+
+    void clear() {
+        pointer = 0;
     }
 
     T* begin() { return Array; }
